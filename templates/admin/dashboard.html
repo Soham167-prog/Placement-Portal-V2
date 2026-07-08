@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Placement Portal</title>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5 CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Axios CDN -->
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <style>
+    .nav-tabs .nav-link {
+      color: #94a3b8;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 1rem 1.5rem;
+    }
+    .nav-tabs .nav-link:hover {
+      color: #fff;
+      border-color: transparent;
+    }
+    .nav-tabs .nav-link.active {
+      color: #6366f1 !important;
+      background-color: transparent !important;
+      border-bottom: 2px solid #6366f1 !important;
+    }
+    .hover-scale {
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .hover-scale:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 20px rgba(99, 102, 241, 0.15) !important;
+    }
+  </style>
+</head>
+<body>
+  {% raw %}
+  <div id="app" class="container-fluid py-4">
+    <!-- Navbar / Header -->
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-center pb-4 mb-4 border-bottom border-secondary">
+      <div class="d-flex align-items-center gap-3">
+        <div class="bg-indigo-500/20 text-indigo-300 p-2.5 rounded-3">
+          <i class="bi bi-shield-lock-fill fs-4"></i>
+        </div>
+        <div>
+          <h2 class="fw-bold text-white mb-0">Institute Placement Portal</h2>
+          <p class="text-slate-400 mb-0">Placement Administration Dashboard</p>
+        </div>
+      </div>
+      <button @click="handleLogout" class="btn btn-outline-danger mt-3 mt-md-0 d-flex align-items-center gap-2">
+        <i class="bi bi-box-arrow-right"></i> Logout Admin
+      </button>
+    </header>
+
+    <!-- Global Alerts -->
+    <div v-if="adminAlert.text" :class="['alert', 'alert-' + adminAlert.type, 'border-0', 'py-3', 'mb-4', 'text-center', 'small']" role="alert">
+      {{ adminAlert.text }}
+    </div>
+
+    <!-- Main Navigation Tabs -->
+    <ul class="nav nav-tabs border-secondary mb-4">
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'overview' }" href="#" @click.prevent="currentTab = 'overview'">
+          <i class="bi bi-grid-fill me-2"></i> Overview
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'students' }" href="#" @click.prevent="currentTab = 'students'">
+          <i class="bi bi-people-fill me-2"></i> Students
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'companies' }" href="#" @click.prevent="currentTab = 'companies'">
+          <i class="bi bi-building-fill me-2"></i> Companies
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'drives' }" href="#" @click.prevent="currentTab = 'drives'">
+          <i class="bi bi-megaphone-fill me-2"></i> Placement Drives
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'applications' }" href="#" @click.prevent="currentTab = 'applications'">
+          <i class="bi bi-file-earmark-text-fill me-2"></i> Applications
+        </a>
+      </li>
+    </ul>
+
+    <!-- TAB CONTENTS -->
+    <div class="tab-content">
+      
+      <!-- OVERVIEW TAB -->
+      <div v-if="currentTab === 'overview'">
+        <div class="row">
+          <!-- Active Students Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('students', 'active')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Active Students</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.active_students_count }}</h2>
+                </div>
+                <span class="badge bg-success bg-opacity-25 text-success p-2 rounded"><i class="bi bi-people-fill fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Blacklisted Students Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('students', 'blacklisted')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Blacklisted Students</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.blacklisted_students_count }}</h2>
+                </div>
+                <span class="badge bg-danger bg-opacity-25 text-danger p-2 rounded"><i class="bi bi-slash-circle-fill fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Active Companies Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('companies', 'approved')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Approved Companies</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.active_companies_count }}</h2>
+                </div>
+                <span class="badge bg-success bg-opacity-25 text-success p-2 rounded"><i class="bi bi-building-fill fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Pending Companies Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('companies', 'pending')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Pending Company Registrations</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.pending_companies_count }}</h2>
+                </div>
+                <span class="badge bg-warning bg-opacity-25 text-warning p-2 rounded"><i class="bi bi-hourglass-split fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Blacklisted Companies Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('companies', 'blacklisted')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Blacklisted Companies</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.blacklisted_companies_count }}</h2>
+                </div>
+                <span class="badge bg-danger bg-opacity-25 text-danger p-2 rounded"><i class="bi bi-slash-circle-fill fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Approved Placement Drives Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('drives', 'Approved')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Approved Drives</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.approved_drives_count }}</h2>
+                </div>
+                <span class="badge bg-success bg-opacity-25 text-success p-2 rounded"><i class="bi bi-megaphone-fill fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Pending Drives Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('drives', 'Pending')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Pending Drives</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.pending_drives_count }}</h2>
+                </div>
+                <span class="badge bg-warning bg-opacity-25 text-warning p-2 rounded"><i class="bi bi-hourglass-split fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Rejected Drives Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('drives', 'Rejected')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Rejected Drives</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.rejected_drives_count }}</h2>
+                </div>
+                <span class="badge bg-danger bg-opacity-25 text-danger p-2 rounded"><i class="bi bi-x-circle-fill fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Total Applications Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('applications', 'all')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Total Applications</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.total_applications_count }}</h2>
+                </div>
+                <span class="badge bg-info bg-opacity-25 text-info p-2 rounded"><i class="bi bi-file-earmark-text-fill fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+          <!-- Rejected Applications Card -->
+          <div class="col-md-3 mb-4" @click="navigateToTab('applications', 'Rejected')">
+            <div class="glass-card p-4 hover-scale shadow-sm">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Rejected Applications</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ adminStatsData.rejected_applications_count }}</h2>
+                </div>
+                <span class="badge bg-danger bg-opacity-25 text-danger p-2 rounded"><i class="bi bi-file-earmark-excel-fill fs-5"></i></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STUDENTS TAB -->
+      <div v-if="currentTab === 'students'">
+        <div class="glass-card p-4 shadow-sm mb-4">
+          <div class="row align-items-center g-3">
+            <div class="col-md-8">
+              <label class="form-label text-slate-300 small">Search Student</label>
+              <input type="text" class="form-control" v-model="studentSearchVal" @input="debouncedFetchStudents" placeholder="Search by Name, Email/ID, or Phone...">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-slate-300 small">Filter Status</label>
+              <select class="form-select text-white bg-slate-900 border-slate-800" v-model="studentFilter" @change="fetchStudents">
+                <option value="all">All Statuses</option>
+                <option value="active">Active Accounts Only</option>
+                <option value="blacklisted">Blacklisted Accounts Only</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 shadow-sm">
+          <h5 class="fw-bold text-white mb-3">Student Profiles</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" style="color: #cbd5e1;">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>ID</th>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>Contact</th>
+                  <th>Academic Info</th>
+                  <th>Account Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="student in filteredStudents" :key="student.student_id" class="border-secondary">
+                  <td>{{ student.student_id }}</td>
+                  <td class="text-white fw-medium">{{ student.full_name }}</td>
+                  <td>{{ student.email }}</td>
+                  <td>{{ student.phone || '-' }}</td>
+                  <td>
+                    <span class="d-block small text-slate-300">Branch: {{ student.branch || '-' }}</span>
+                    <span class="d-block small text-slate-300">CGPA: {{ student.cgpa || '-' }} | Grad Year: {{ student.graduation_year || '-' }}</span>
+                  </td>
+                  <td>
+                    <span v-if="student.is_blacklisted" class="badge bg-danger bg-opacity-25 text-danger px-2.5 py-1">Blacklisted</span>
+                    <span v-else class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Active</span>
+                  </td>
+                  <td>
+                    <div class="d-flex gap-2">
+                      <button v-if="!student.is_blacklisted" @click="toggleStudentBlacklist(student.student_id)" class="btn btn-sm btn-outline-warning" title="Blacklist Student">
+                        <i class="bi bi-slash-circle-fill"></i> Blacklist
+                      </button>
+                      <span v-else class="text-danger small fw-semibold py-1 d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-slash-circle-fill"></i> Permanent Blacklist
+                      </span>
+                      <button @click="removeStudent(student.student_id)" class="btn btn-sm btn-outline-danger" title="Delete Profile">
+                        <i class="bi bi-trash-fill"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="filteredStudents.length === 0">
+                  <td colspan="7" class="text-center py-4 text-slate-400">No students found matching current filters.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPANIES TAB -->
+      <div v-if="currentTab === 'companies'">
+        <!-- Search & Custom Filters -->
+        <div class="glass-card p-4 shadow-sm mb-4">
+          <div class="row align-items-center g-3">
+            <div class="col-md-8">
+              <label class="form-label text-slate-300 small">Search Company</label>
+              <input type="text" class="form-control" v-model="companySearchVal" @input="debouncedFetchCompanies" placeholder="Search by Company Name or Industry...">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-slate-300 small">Filter Status</label>
+              <select class="form-select text-white bg-slate-900 border-slate-800" v-model="companyFilter" @change="fetchCompanies">
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending Approvals</option>
+                <option value="approved">Approved & Active</option>
+                <option value="blacklisted">Blacklisted Only</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pending Registrations Panel (Auto-hides if none) -->
+        <div v-if="pendingCompanies.length > 0" class="glass-card p-4 shadow-sm mb-4 border-warning border-opacity-20">
+          <h5 class="fw-bold text-warning mb-3">
+            <i class="bi bi-exclamation-circle-fill me-1"></i> Pending Company Approvals
+          </h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" style="color: #cbd5e1;">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>Company Name</th>
+                  <th>HR Contact</th>
+                  <th>Industry Sector</th>
+                  <th>Corporate Site</th>
+                  <th>HQ Location</th>
+                  <th>Registration Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="comp in pendingCompanies" :key="comp.company_id" class="border-secondary">
+                  <td class="text-white fw-semibold">{{ comp.company_name }}</td>
+                  <td>
+                    <span class="d-block fw-medium text-slate-200">{{ comp.hr_contact }}</span>
+                    <span class="d-block small text-slate-400">{{ comp.email }}</span>
+                  </td>
+                  <td>{{ comp.industry || '-' }}</td>
+                  <td>
+                    <a v-if="comp.website" :href="comp.website" target="_blank" class="text-indigo-300 small text-decoration-none">
+                      <i class="bi bi-link-45deg"></i> Careers Site
+                    </a>
+                    <span v-else>-</span>
+                  </td>
+                  <td>{{ comp.location || '-' }}</td>
+                  <td>
+                    <div class="d-flex gap-2">
+                      <button @click="approveCompany(comp.company_id)" class="btn btn-sm btn-success px-3">
+                        <i class="bi bi-check-lg"></i> Approve
+                      </button>
+                      <button @click="rejectCompany(comp.company_id)" class="btn btn-sm btn-outline-danger px-3">
+                        <i class="bi bi-x-lg"></i> Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Approved / Blacklisted Companies -->
+        <div class="glass-card p-4 shadow-sm">
+          <h5 class="fw-bold text-white mb-3">Active & Managed Recruiters</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" style="color: #cbd5e1;">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>Company Name</th>
+                  <th>HR Contact Details</th>
+                  <th>Industry Sector</th>
+                  <th>Location</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="company in approvedCompanies" :key="company.company_id" class="border-secondary">
+                  <td class="text-white fw-bold">{{ company.company_name }}</td>
+                  <td>
+                    <span class="d-block fw-semibold text-slate-300">{{ company.hr_contact }}</span>
+                    <span class="d-block small text-slate-400">{{ company.email }}</span>
+                  </td>
+                  <td>{{ company.industry || '-' }}</td>
+                  <td>{{ company.location || '-' }}</td>
+                  <td>
+                    <span v-if="company.is_blacklisted" class="badge bg-danger bg-opacity-25 text-danger px-2.5 py-1">Blacklisted</span>
+                    <span v-else-if="company.approval_status === 'Rejected'" class="badge bg-secondary bg-opacity-25 text-slate-300 px-2.5 py-1">Rejected</span>
+                    <span v-else class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Active</span>
+                  </td>
+                  <td>
+                    <div class="d-flex gap-2">
+                      <button v-if="!company.is_blacklisted" @click="toggleCompanyBlacklist(company.company_id)" class="btn btn-sm btn-outline-warning" title="Blacklist Company">
+                        <i class="bi bi-slash-circle-fill"></i> Blacklist
+                      </button>
+                      <span v-else class="text-danger small fw-semibold py-1 d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-slash-circle-fill"></i> Permanent Blacklist
+                      </span>
+                      <button @click="removeCompany(company.company_id)" class="btn btn-sm btn-outline-danger" title="Delete Profile">
+                        <i class="bi bi-trash-fill"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="approvedCompanies.length === 0">
+                  <td colspan="6" class="text-center py-4 text-slate-400">No companies found matching current filters.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLACEMENT DRIVES TAB -->
+      <div v-if="currentTab === 'drives'">
+        <!-- Filter Bar -->
+        <div class="glass-card p-4 shadow-sm mb-4">
+          <div class="row align-items-center">
+            <div class="col-md-4">
+              <label class="form-label text-slate-300 small">Filter Drive Status</label>
+              <select class="form-select text-white bg-slate-900 border-slate-800" v-model="driveFilter" @change="filterDrives">
+                <option value="all">All Placement Drives</option>
+                <option value="Pending">Pending Approvals</option>
+                <option value="Approved">Approved / Active Drives</option>
+                <option value="Rejected">Rejected Drives</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pending Approval Placement Drives Panel (Auto-hides if none) -->
+        <div v-if="pendingDrives.length > 0" class="glass-card p-4 shadow-sm mb-4 border-warning border-opacity-20">
+          <h5 class="fw-bold text-warning mb-3">
+            <i class="bi bi-exclamation-circle-fill me-1"></i> Pending Drive Proposals
+          </h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" style="color: #cbd5e1;">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>Company</th>
+                  <th>Job Title</th>
+                  <th>Salary (LPA)</th>
+                  <th>Location</th>
+                  <th>Eligibility criteria</th>
+                  <th>Registration Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="drive in pendingDrives" :key="drive.drive_id" class="border-secondary">
+                  <td class="text-white fw-bold">{{ drive.company_name }}</td>
+                  <td class="text-white fw-semibold">{{ drive.job_title }}</td>
+                  <td>{{ drive.salary || '-' }}</td>
+                  <td>{{ drive.location || '-' }}</td>
+                  <td><span class="small text-slate-300">{{ drive.eligibility_criteria || '-' }}</span></td>
+                  <td>
+                    <div class="d-flex gap-2">
+                      <button @click="approveDrive(drive.drive_id)" class="btn btn-sm btn-success px-3">
+                        <i class="bi bi-check-lg"></i> Approve
+                      </button>
+                      <button @click="rejectDrive(drive.drive_id)" class="btn btn-sm btn-outline-danger px-3">
+                        <i class="bi bi-x-lg"></i> Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Approved / Rejected Drives -->
+        <div class="glass-card p-4 shadow-sm">
+          <h5 class="fw-bold text-white mb-3">Job Postings & Active Drives</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" style="color: #cbd5e1;">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>Company</th>
+                  <th>Job Title</th>
+                  <th>Compensation (LPA)</th>
+                  <th>Location</th>
+                  <th>Eligibility Criteria</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="drive in approvedDrives" :key="drive.drive_id" class="border-secondary">
+                  <td class="text-white fw-bold">{{ drive.company_name }}</td>
+                  <td class="text-white fw-semibold">{{ drive.job_title }}</td>
+                  <td>{{ drive.salary || '-' }}</td>
+                  <td>{{ drive.location || '-' }}</td>
+                  <td><span class="small text-slate-300">{{ drive.eligibility_criteria || '-' }}</span></td>
+                  <td>
+                    <span v-if="drive.status === 'Approved'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Approved</span>
+                    <span v-else-if="drive.status === 'Rejected'" class="badge bg-danger bg-opacity-25 text-danger px-2.5 py-1">Rejected</span>
+                    <span v-else class="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1">Pending</span>
+                  </td>
+                  <td>
+                    <button @click="removeDrive(drive.drive_id)" class="btn btn-sm btn-outline-danger" title="Remove Job Posting">
+                      <i class="bi bi-trash-fill"></i> Delete
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="approvedDrives.length === 0">
+                  <td colspan="7" class="text-center py-4 text-slate-400">No job postings found matching current status.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- APPLICATIONS TAB -->
+      <div v-if="currentTab === 'applications'">
+        <!-- Filter Bar -->
+        <div class="glass-card p-4 shadow-sm mb-4">
+          <div class="row align-items-center">
+            <div class="col-md-4">
+              <label class="form-label text-slate-300 small">Filter Application Status</label>
+              <select class="form-select text-white bg-slate-900 border-slate-800" v-model="applicationFilter" @change="filterApplications">
+                <option value="all">All Applications</option>
+                <option value="Applied">Applied (Pending)</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Applications Table -->
+        <div class="glass-card p-4 shadow-sm">
+          <h5 class="fw-bold text-white mb-3">Student Job Applications</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" style="color: #cbd5e1;">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>App ID</th>
+                  <th>Student Name</th>
+                  <th>Company</th>
+                  <th>Job Profile</th>
+                  <th>Application Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="appln in approvedApplications" :key="appln.application_id" class="border-secondary">
+                  <td>{{ appln.application_id }}</td>
+                  <td>
+                    <span class="d-block fw-semibold text-white">{{ appln.student_name }}</span>
+                    <span class="d-block small text-slate-400">{{ appln.student_email }}</span>
+                  </td>
+                  <td class="text-white fw-medium">{{ appln.company_name }}</td>
+                  <td>{{ appln.job_title }}</td>
+                  <td><span class="small">{{ appln.application_date || '-' }}</span></td>
+                  <td>
+                    <span v-if="appln.status === 'Approved'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Approved</span>
+                    <span v-else-if="appln.status === 'Rejected'" class="badge bg-danger bg-opacity-25 text-danger px-2.5 py-1">Rejected</span>
+                    <span v-else class="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1">Applied</span>
+                  </td>
+                  <td>
+                    <button @click="removeApplication(appln.application_id)" class="btn btn-sm btn-outline-danger" title="Remove Application">
+                      <i class="bi bi-trash-fill"></i> Delete
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="approvedApplications.length === 0">
+                  <td colspan="7" class="text-center py-4 text-slate-400">No applications found.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  {% endraw %}
+
+  <script>
+    const { createApp, ref, onMounted, computed } = Vue;
+    createApp({
+      setup() {
+        const currentTab = ref('overview');
+        const adminStatsData = ref({
+          active_students_count: 0,
+          blacklisted_students_count: 0,
+          active_companies_count: 0,
+          pending_companies_count: 0,
+          blacklisted_companies_count: 0,
+          approved_drives_count: 0,
+          pending_drives_count: 0,
+          rejected_drives_count: 0,
+          total_applications_count: 0,
+          rejected_applications_count: 0
+        });
+
+        const adminStudents = ref([]);
+        const adminCompanies = ref([]);
+        const adminDrives = ref([]);
+        const adminApplications = ref([]);
+
+        // Search inputs
+        const studentSearchVal = ref('');
+        const companySearchVal = ref('');
+
+        // Tab filters
+        const studentFilter = ref('all');
+        const companyFilter = ref('all');
+        const driveFilter = ref('all');
+        const applicationFilter = ref('all');
+
+        const adminAlert = ref({ text: '', type: '' });
+
+        // Utility: Show Alert
+        const showAlert = (text, type = 'success') => {
+          adminAlert.value = { text, type };
+          setTimeout(() => { adminAlert.value = { text: '', type: '' }; }, 4000);
+        };
+
+        // Fetch Stats
+        const fetchStats = async () => {
+          try {
+            const res = await axios.get('/api/admin/stats');
+            adminStatsData.value = res.data;
+          } catch (err) {
+            console.error("Failed to load statistics.", err);
+          }
+        };
+
+        // Fetch Students
+        const fetchStudents = async () => {
+          try {
+            const res = await axios.get('/api/admin/students', {
+              params: { query: studentSearchVal.value }
+            });
+            adminStudents.value = res.data;
+          } catch (err) {
+            showAlert('Failed to fetch students.', 'danger');
+          }
+        };
+
+        // Fetch Companies
+        const fetchCompanies = async () => {
+          try {
+            const res = await axios.get('/api/admin/companies', {
+              params: { query: companySearchVal.value }
+            });
+            adminCompanies.value = res.data;
+          } catch (err) {
+            showAlert('Failed to fetch companies.', 'danger');
+          }
+        };
+
+        // Fetch Job Drives
+        const fetchDrives = async () => {
+          try {
+            const res = await axios.get('/api/admin/drives');
+            adminDrives.value = res.data;
+          } catch (err) {
+            showAlert('Failed to fetch drives.', 'danger');
+          }
+        };
+
+        // Fetch Applications
+        const fetchApplications = async () => {
+          try {
+            const res = await axios.get('/api/admin/applications');
+            adminApplications.value = res.data;
+          } catch (err) {
+            showAlert('Failed to fetch applications.', 'danger');
+          }
+        };
+
+        // Debounce handles
+        let studentTimeout = null;
+        const debouncedFetchStudents = () => {
+          clearTimeout(studentTimeout);
+          studentTimeout = setTimeout(fetchStudents, 300);
+        };
+
+        let companyTimeout = null;
+        const debouncedFetchCompanies = () => {
+          clearTimeout(companyTimeout);
+          companyTimeout = setTimeout(fetchCompanies, 300);
+        };
+
+        // Clickable card navigation
+        const navigateToTab = (tab, filterVal) => {
+          currentTab.value = tab;
+          if (tab === 'students') {
+            studentFilter.value = filterVal;
+          } else if (tab === 'companies') {
+            companyFilter.value = filterVal;
+          } else if (tab === 'drives') {
+            driveFilter.value = filterVal;
+          } else if (tab === 'applications') {
+            applicationFilter.value = filterVal;
+          }
+        };
+
+        // Student Actions
+        const toggleStudentBlacklist = async (id) => {
+          try {
+            const res = await axios.post(`/api/admin/students/${id}/toggle-blacklist`);
+            showAlert(res.data.message);
+            fetchStudents();
+            fetchStats();
+          } catch (err) {
+            showAlert(err.response?.data?.message || 'Error occurred.', 'danger');
+          }
+        };
+
+        const removeStudent = async (id) => {
+          if (!confirm('Are you sure you want to permanently delete this student profile?')) return;
+          try {
+            const res = await axios.delete(`/api/admin/students/${id}`);
+            showAlert(res.data.message);
+            fetchStudents();
+            fetchStats();
+          } catch (err) {
+            showAlert('Could not delete student.', 'danger');
+          }
+        };
+
+        // Company Actions
+        const approveCompany = async (id) => {
+          try {
+            const res = await axios.post(`/api/admin/companies/${id}/approve`);
+            showAlert(res.data.message);
+            fetchCompanies();
+            fetchStats();
+          } catch (err) {
+            showAlert('Error approving company.', 'danger');
+          }
+        };
+
+        const rejectCompany = async (id) => {
+          try {
+            const res = await axios.post(`/api/admin/companies/${id}/reject`);
+            showAlert(res.data.message);
+            fetchCompanies();
+            fetchStats();
+          } catch (err) {
+            showAlert('Error rejecting company.', 'danger');
+          }
+        };
+
+        const toggleCompanyBlacklist = async (id) => {
+          try {
+            const res = await axios.post(`/api/admin/companies/${id}/toggle-blacklist`);
+            showAlert(res.data.message);
+            fetchCompanies();
+            fetchStats();
+          } catch (err) {
+            showAlert(err.response?.data?.message || 'Error occurred.', 'danger');
+          }
+        };
+
+        const removeCompany = async (id) => {
+          if (!confirm('Are you sure you want to permanently delete this company profile?')) return;
+          try {
+            const res = await axios.delete(`/api/admin/companies/${id}`);
+            showAlert(res.data.message);
+            fetchCompanies();
+            fetchStats();
+          } catch (err) {
+            showAlert('Could not delete company.', 'danger');
+          }
+        };
+
+        // Drive Actions
+        const approveDrive = async (id) => {
+          try {
+            const res = await axios.post(`/api/admin/drives/${id}/approve`);
+            showAlert(res.data.message);
+            fetchDrives();
+            fetchStats();
+          } catch (err) {
+            showAlert('Error approving drive.', 'danger');
+          }
+        };
+
+        const rejectDrive = async (id) => {
+          try {
+            const res = await axios.post(`/api/admin/drives/${id}/reject`);
+            showAlert(res.data.message);
+            fetchDrives();
+            fetchStats();
+          } catch (err) {
+            showAlert('Error rejecting drive.', 'danger');
+          }
+        };
+
+        const removeDrive = async (id) => {
+          if (!confirm('Are you sure you want to permanently remove this job posting?')) return;
+          try {
+            const res = await axios.delete(`/api/admin/drives/${id}`);
+            showAlert(res.data.message);
+            fetchDrives();
+            fetchStats();
+          } catch (err) {
+            showAlert('Could not delete job drive.', 'danger');
+          }
+        };
+
+        // Application Actions
+        const removeApplication = async (id) => {
+          if (!confirm('Are you sure you want to permanently remove this job application record?')) return;
+          try {
+            const res = await axios.delete(`/api/admin/applications/${id}`);
+            showAlert(res.data.message);
+            fetchApplications();
+            fetchStats();
+          } catch (err) {
+            showAlert('Could not delete application record.', 'danger');
+          }
+        };
+
+        const handleLogout = async () => {
+          try {
+            await axios.post('/logout');
+            window.location.href = '/';
+          } catch (err) {
+            window.location.href = '/';
+          }
+        };
+
+        // Computed Filters for Companies section
+        const pendingCompanies = computed(() => {
+          return adminCompanies.value.filter(c => c.approval_status === 'Pending');
+        });
+
+        const pendingDrives = computed(() => {
+          return adminDrives.value.filter(d => d.status === 'Pending');
+        });
+
+        // Filtered Lists depending on dropdown filters
+        const filteredStudents = computed(() => {
+          if (studentFilter.value === 'blacklisted') {
+            return adminStudents.value.filter(s => s.is_blacklisted);
+          } else if (studentFilter.value === 'active') {
+            return adminStudents.value.filter(s => !s.is_blacklisted);
+          }
+          return adminStudents.value;
+        });
+
+        const approvedCompanies = computed(() => {
+          let list = adminCompanies.value;
+          if (companyFilter.value === 'pending') {
+            return list.filter(c => c.approval_status === 'Pending');
+          } else if (companyFilter.value === 'approved') {
+            return list.filter(c => c.approval_status === 'Approved' && !c.is_blacklisted);
+          } else if (companyFilter.value === 'blacklisted') {
+            return list.filter(c => c.is_blacklisted);
+          }
+          // Default: All approved or blacklisted (i.e. not pending approval)
+          return list.filter(c => c.approval_status !== 'Pending');
+        });
+
+        const approvedDrives = computed(() => {
+          let list = adminDrives.value;
+          if (driveFilter.value !== 'all') {
+            return list.filter(d => d.status === driveFilter.value);
+          }
+          return list;
+        });
+
+        const approvedApplications = computed(() => {
+          let list = adminApplications.value;
+          if (applicationFilter.value !== 'all') {
+            return list.filter(a => a.status === applicationFilter.value);
+          }
+          return list;
+        });
+
+        // Session check to confirm Admin
+        const checkSession = async () => {
+          try {
+            const res = await axios.get('/api/current-user');
+            if (!res.data.logged_in || res.data.user.role !== 'Admin') {
+              window.location.href = '/admin-login';
+            }
+          } catch (err) {
+            window.location.href = '/admin-login';
+          }
+        };
+
+        onMounted(() => {
+          checkSession();
+          fetchStats();
+          fetchStudents();
+          fetchCompanies();
+          fetchDrives();
+          fetchApplications();
+        });
+
+        return {
+          currentTab,
+          adminStatsData,
+          adminStudents,
+          adminCompanies,
+          adminDrives,
+          adminApplications,
+          studentSearchVal,
+          companySearchVal,
+          studentFilter,
+          companyFilter,
+          driveFilter,
+          applicationFilter,
+          adminAlert,
+          pendingCompanies,
+          pendingDrives,
+          filteredStudents,
+          approvedCompanies,
+          approvedDrives,
+          approvedApplications,
+          debouncedFetchStudents,
+          debouncedFetchCompanies,
+          fetchStudents,
+          fetchCompanies,
+          navigateToTab,
+          toggleStudentBlacklist,
+          removeStudent,
+          approveCompany,
+          rejectCompany,
+          toggleCompanyBlacklist,
+          removeCompany,
+          approveDrive,
+          rejectDrive,
+          removeDrive,
+          removeApplication,
+          handleLogout
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

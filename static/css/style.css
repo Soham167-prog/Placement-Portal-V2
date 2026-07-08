@@ -1,0 +1,89 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  background: radial-gradient(circle at 10% 20%, #1e1b4b 0%, #0f172a 90%);
+  color: #f1f5f9;
+  min-height: 100vh;
+}
+
+.glass-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.form-control, .form-select {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #fff !important;
+}
+
+.form-control:focus, .form-select:focus {
+  background-color: #1e293b !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 0.25rem rgba(99, 102, 241, 0.25) !important;
+}
+
+.text-slate-400 { color: #94a3b8; }
+.text-slate-300 { color: #cbd5e1; }
+.text-slate-600 { color: #475569; }
+.text-indigo-400 { color: #818cf8; }
+
+.bg-slate-900 { background-color: #020617 !important; }
+.border-slate-800 { border-color: #1e293b !important; }
+.bg-indigo-500\/20 { background-color: rgba(99, 102, 241, 0.2) !important; }
+.text-indigo-300 { color: #a5b4fc !important; }
+.border-indigo-500\/30 { border-color: rgba(99, 102, 241, 0.3) !important; }
+
+.btn-primary {
+  background-color: #6366f1;
+  border-color: #6366f1;
+}
+.btn-primary:hover {
+  background-color: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.auth-link {
+  color: #6366f1;
+  text-decoration: none;
+  font-weight: 500;
+}
+.auth-link:hover {
+  color: #818cf8;
+  text-decoration: underline;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Custom table styling to ensure theme-based dark background */
+.table {
+  --bs-table-bg: transparent !important;
+  --bs-table-color: #cbd5e1 !important;
+  --bs-table-hover-color: #fff !important;
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.05) !important;
+  --bs-table-border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+
+.table th, .table td {
+  background-color: transparent !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  color: inherit !important;
+}

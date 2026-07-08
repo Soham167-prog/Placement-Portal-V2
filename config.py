@@ -13,3 +13,6 @@ class Config:
 
     # Disable modification tracking
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    SECURITY_PASSWORD_SALT = "placement-portal-salt"
+    SECURITY_REGISTER_BLUEPRINT = False

@@ -1,3 +1,4 @@
+from werkzeug.security import generate_password_hash
 from app import app
 from extensions import db
 from models import User
@@ -11,7 +12,7 @@ with app.app_context():
     else:
         admin = User(
             email="admin@placement.com",
-            password_hash="admin123",   # Will hash later in Milestone 2
+            password_hash=generate_password_hash("admin123"),   
             role="Admin",
             is_active=True
         )

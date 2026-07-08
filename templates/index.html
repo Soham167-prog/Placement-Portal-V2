@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Placement Portal</title>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5 CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Axios CDN -->
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 10% 20%, #1e1b4b 0%, #0f172a 90%);
+      color: #f1f5f9;
+      min-height: 100vh;
+    }
+    
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+    }
+
+    .form-control {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+      color: #fff !important;
+    }
+
+    .form-control:focus {
+      background-color: #1e293b !important;
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 0 0.25rem rgba(99, 102, 241, 0.25) !important;
+    }
+
+    .text-slate-400 { color: #94a3b8; }
+    .text-slate-300 { color: #cbd5e1; }
+    .text-slate-600 { color: #475569; }
+    .text-indigo-400 { color: #818cf8; }
+    
+    .bg-slate-900 { background-color: #020617 !important; }
+    .border-slate-800 { border-color: #1e293b !important; }
+    .bg-indigo-500\/20 { background-color: rgba(99, 102, 241, 0.2) !important; }
+    .text-indigo-300 { color: #a5b4fc !important; }
+    .border-indigo-500\/30 { border-color: rgba(99, 102, 241, 0.3) !important; }
+    
+    .btn-primary {
+      background-color: #6366f1;
+      border-color: #6366f1;
+    }
+    .btn-primary:hover {
+      background-color: #4f46e5;
+      border-color: #4f46e5;
+    }
+
+    .auth-link {
+      color: #6366f1;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .auth-link:hover {
+      color: #818cf8;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    {% raw %}
+    <!-- View Switcher -->
+
+    <!-- HOME VIEW (2 Portal Options) -->
+    <div v-if="currentView === 'home'" class="d-flex justify-content-center align-items-center min-vh-100 px-3">
+      <div class="glass-card p-5 shadow-lg w-100 text-center" style="max-width: 500px;">
+        <h2 class="fw-bold tracking-tight text-white mb-2">Placement Portal</h2>
+        <p class="text-slate-400 mb-4">Select your role to access the portal</p>
+        <div class="d-grid gap-3">
+          <button @click="switchView('student-login')" class="btn btn-primary py-3 fw-semibold d-flex align-items-center justify-content-center gap-2">
+            <i class="bi bi-person-workspace fs-5"></i> Login as Student
+          </button>
+          <button @click="switchView('company-login')" class="btn btn-outline-light border-secondary py-3 fw-semibold d-flex align-items-center justify-content-center gap-2">
+            <i class="bi bi-building fs-5"></i> Login as Company
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENT LOGIN VIEW -->
+    <div v-else-if="currentView === 'student-login'" class="d-flex justify-content-center align-items-center min-vh-100 px-3">
+      <div class="glass-card p-5 shadow-lg w-100" style="max-width: 440px;">
+        <div class="mb-4">
+          <button @click="switchView('home')" class="btn btn-link text-slate-400 p-0 text-decoration-none small">
+            <i class="bi bi-arrow-left"></i> Back to Home
+          </button>
+          <h2 class="fw-bold tracking-tight text-white mt-3 mb-1">Student Login</h2>
+          <p class="text-slate-400">Sign in to your student account</p>
+        </div>
+
+        <div v-if="error" class="alert alert-danger border-0 py-2 text-center small" role="alert">
+          {{ error }}
+        </div>
+
+        <form @submit.prevent="handleLogin('Student')" novalidate>
+          <div class="mb-3">
+            <label for="stud-email" class="form-label text-slate-300">Email Address</label>
+            <input type="email" id="stud-email" class="form-control" v-model="loginForm.email" required placeholder="name@placement.com">
+          </div>
+
+          <div class="mb-4">
+            <label for="stud-password" class="form-label text-slate-300">Password</label>
+            <div class="input-group">
+              <input :type="showPassword ? 'text' : 'password'" id="stud-password" class="form-control" v-model="loginForm.password" required placeholder="••••••••">
+              <button class="btn btn-outline-secondary border-secondary bg-slate-800 text-slate-400" type="button" @click="showPassword = !showPassword">
+                <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2.5 fw-semibold text-white" :disabled="loading">
+            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Sign In
+          </button>
+        </form>
+
+        <div class="text-center mt-4">
+          <p class="text-slate-400 small mb-0">Not registered? <a href="#" @click.prevent="switchView('register-student')" class="auth-link">Register Now</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPANY LOGIN VIEW -->
+    <div v-else-if="currentView === 'company-login'" class="d-flex justify-content-center align-items-center min-vh-100 px-3">
+      <div class="glass-card p-5 shadow-lg w-100" style="max-width: 440px;">
+        <div class="mb-4">
+          <button @click="switchView('home')" class="btn btn-link text-slate-400 p-0 text-decoration-none small">
+            <i class="bi bi-arrow-left"></i> Back to Home
+          </button>
+          <h2 class="fw-bold tracking-tight text-white mt-3 mb-1">Company Login</h2>
+          <p class="text-slate-400">Sign in to your recruiter account</p>
+        </div>
+
+        <div v-if="error" class="alert alert-danger border-0 py-2 text-center small" role="alert">
+          {{ error }}
+        </div>
+
+        <form @submit.prevent="handleLogin('Company')" novalidate>
+          <div class="mb-3">
+            <label for="comp-email" class="form-label text-slate-300">Email Address</label>
+            <input type="email" id="comp-email" class="form-control" v-model="loginForm.email" required placeholder="hr@google.com">
+          </div>
+
+          <div class="mb-4">
+            <label for="comp-password" class="form-label text-slate-300">Password</label>
+            <div class="input-group">
+              <input :type="showPassword ? 'text' : 'password'" id="comp-password" class="form-control" v-model="loginForm.password" required placeholder="••••••••">
+              <button class="btn btn-outline-secondary border-secondary bg-slate-800 text-slate-400" type="button" @click="showPassword = !showPassword">
+                <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2.5 fw-semibold text-white" :disabled="loading">
+            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Sign In
+          </button>
+        </form>
+
+        <div class="text-center mt-4">
+          <p class="text-slate-400 small mb-0">Not registered? <a href="#" @click.prevent="switchView('register-company')" class="auth-link">Register Now</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN LOGIN VIEW -->
+    <div v-else-if="currentView === 'admin-login'" class="d-flex justify-content-center align-items-center min-vh-100 px-3">
+      <div class="glass-card p-5 shadow-lg w-100" style="max-width: 440px;">
+        <div class="mb-4">
+          <button @click="switchView('home')" class="btn btn-link text-slate-400 p-0 text-decoration-none small">
+            <i class="bi bi-arrow-left"></i> Back to Home
+          </button>
+          <h2 class="fw-bold tracking-tight text-white mt-3 mb-1">Admin Login</h2>
+          <p class="text-slate-400">Sign in to the Admin Dashboard</p>
+        </div>
+
+        <div v-if="error" class="alert alert-danger border-0 py-2 text-center small" role="alert">
+          {{ error }}
+        </div>
+
+        <form @submit.prevent="handleLogin('Admin')" novalidate>
+          <div class="mb-3">
+            <label for="adm-email" class="form-label text-slate-300">Email Address</label>
+            <input type="email" id="adm-email" class="form-control" v-model="loginForm.email" required placeholder="admin@placement.com">
+          </div>
+
+          <div class="mb-4">
+            <label for="adm-password" class="form-label text-slate-300">Password</label>
+            <div class="input-group">
+              <input :type="showPassword ? 'text' : 'password'" id="adm-password" class="form-control" v-model="loginForm.password" required placeholder="••••••••">
+              <button class="btn btn-outline-secondary border-secondary bg-slate-800 text-slate-400" type="button" @click="showPassword = !showPassword">
+                <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2.5 fw-semibold text-white" :disabled="loading">
+            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Sign In
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- STUDENT REGISTER VIEW -->
+    <div v-else-if="currentView === 'register-student'" class="d-flex justify-content-center align-items-center min-vh-100 py-5 px-3">
+      <div class="glass-card p-5 shadow-lg w-100" style="max-width: 700px;">
+        <div class="text-center mb-4">
+          <h2 class="fw-bold tracking-tight text-white mb-1">Student Registration</h2>
+          <p class="text-slate-400">Join the Placement Portal</p>
+        </div>
+
+        <div v-if="error" class="alert alert-danger border-0 py-2 text-center small" role="alert">
+          {{ error }}
+        </div>
+        <div v-if="success" class="alert alert-success border-0 py-2 text-center small" role="alert">
+          {{ success }}
+        </div>
+
+        <form @submit.prevent="handleRegisterStudent" novalidate>
+          <div class="row">
+            <h5 class="text-indigo-400 pb-2 mb-3 border-bottom border-secondary">Account Info</h5>
+            <div class="col-md-6 mb-3">
+              <label for="reg-stud-email" class="form-label text-slate-300">Email Address *</label>
+              <input type="email" id="reg-stud-email" class="form-control" v-model="studentForm.email" required placeholder="student@placement.com">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-stud-name" class="form-label text-slate-300">Full Name *</label>
+              <input type="text" id="reg-stud-name" class="form-control" v-model="studentForm.full_name" required placeholder="John Doe">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-stud-password" class="form-label text-slate-300">Password *</label>
+              <input type="password" id="reg-stud-password" class="form-control" v-model="studentForm.password" required placeholder="••••••••">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-stud-confirm" class="form-label text-slate-300">Confirm Password *</label>
+              <input type="password" id="reg-stud-confirm" class="form-control" v-model="studentForm.confirm_password" required placeholder="••••••••">
+            </div>
+
+            <h5 class="text-indigo-400 pb-2 mb-3 mt-3 border-bottom border-secondary">Academic Details</h5>
+            <div class="col-md-6 mb-3">
+              <label for="reg-stud-phone" class="form-label text-slate-300">Phone Number</label>
+              <input type="text" id="reg-stud-phone" class="form-control" v-model="studentForm.phone" placeholder="1234567890">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-stud-branch" class="form-label text-slate-300">Branch</label>
+              <input type="text" id="reg-stud-branch" class="form-control" v-model="studentForm.branch" placeholder="CSE">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-stud-cgpa" class="form-label text-slate-300">CGPA</label>
+              <input type="number" step="0.01" min="0" max="10" id="reg-stud-cgpa" class="form-control" v-model.number="studentForm.cgpa" placeholder="9.0">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-stud-year" class="form-label text-slate-300">Graduation Year</label>
+              <input type="number" id="reg-stud-year" class="form-control" v-model.number="studentForm.graduation_year" placeholder="2026">
+            </div>
+            <div class="col-12 mb-3">
+              <label for="reg-stud-skills" class="form-label text-slate-300">Skills (Comma separated)</label>
+              <input type="text" id="reg-stud-skills" class="form-control" v-model="studentForm.skills" placeholder="Python, Vue.js, SQL">
+            </div>
+            <div class="col-12 mb-3">
+              <label for="reg-stud-exp" class="form-label text-slate-300">Experience</label>
+              <textarea id="reg-stud-exp" rows="3" class="form-control" v-model="studentForm.experience" placeholder="Internships, projects..."></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2.5 fw-semibold text-white mt-3" :disabled="loading">
+            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Register Student
+          </button>
+        </form>
+
+        <div class="text-center mt-4">
+          <p class="text-slate-400 small mb-0">
+            Already have an account?
+            <a href="#" @click.prevent="switchView('student-login')" class="auth-link ms-1">Sign In</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPANY REGISTER VIEW -->
+    <div v-else-if="currentView === 'register-company'" class="d-flex justify-content-center align-items-center min-vh-100 py-5 px-3">
+      <div class="glass-card p-5 shadow-lg w-100" style="max-width: 700px;">
+        <div class="text-center mb-4">
+          <h2 class="fw-bold tracking-tight text-white mb-1">Company Registration</h2>
+          <p class="text-slate-400">Join our placement network</p>
+        </div>
+
+        <div class="alert alert-warning border-0 bg-opacity-25 py-3 px-4 mb-4 small rounded-3" role="alert" style="background-color: rgba(245, 158, 11, 0.15); color: #fcd34d;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-shield-lock-fill"></i>
+            <div>
+              <strong>Approval Required:</strong> Your company profile will require review and approval from the placement administrator before you can log in and post jobs.
+            </div>
+          </div>
+        </div>
+
+        <div v-if="error" class="alert alert-danger border-0 py-2 text-center small" role="alert">
+          {{ error }}
+        </div>
+        <div v-if="success" class="alert alert-success border-0 py-2 text-center small" role="alert">
+          {{ success }}
+        </div>
+
+        <form @submit.prevent="handleRegisterCompany" novalidate>
+          <div class="row">
+            <h5 class="text-indigo-400 pb-2 mb-3 border-bottom border-secondary">Credentials & Contact</h5>
+            <div class="col-md-6 mb-3">
+              <label for="reg-comp-email" class="form-label text-slate-300">Email Address *</label>
+              <input type="email" id="reg-comp-email" class="form-control" v-model="companyForm.email" required placeholder="hr@google.com">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-comp-name" class="form-label text-slate-300">Company Name *</label>
+              <input type="text" id="reg-comp-name" class="form-control" v-model="companyForm.company_name" required placeholder="Google LLC">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-comp-password" class="form-label text-slate-300">Password *</label>
+              <input type="password" id="reg-comp-password" class="form-control" v-model="companyForm.password" required placeholder="••••••••">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-comp-confirm" class="form-label text-slate-300">Confirm Password *</label>
+              <input type="password" id="reg-comp-confirm" class="form-control" v-model="companyForm.confirm_password" required placeholder="••••••••">
+            </div>
+            <div class="col-12 mb-3">
+              <label for="reg-comp-hr" class="form-label text-slate-300">HR Contact Details *</label>
+              <input type="text" id="reg-comp-hr" class="form-control" v-model="companyForm.hr_contact" required placeholder="Jane Smith, Lead Technical Recruiter">
+            </div>
+
+            <h5 class="text-indigo-400 pb-2 mb-3 mt-3 border-bottom border-secondary">Company Info</h5>
+            <div class="col-md-6 mb-3">
+              <label for="reg-comp-web" class="form-label text-slate-300">Website URL</label>
+              <input type="url" id="reg-comp-web" class="form-control" v-model="companyForm.website" placeholder="https://careers.google.com">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="reg-comp-ind" class="form-label text-slate-300">Industry Sector</label>
+              <input type="text" id="reg-comp-ind" class="form-control" v-model="companyForm.industry" placeholder="Software / IT">
+            </div>
+            <div class="col-12 mb-3">
+              <label for="reg-comp-loc" class="form-label text-slate-300">Corporate HQ Location</label>
+              <input type="text" id="reg-comp-loc" class="form-control" v-model="companyForm.location" placeholder="Bangalore, India">
+            </div>
+            <div class="col-12 mb-3">
+              <label for="reg-comp-desc" class="form-label text-slate-300">Company Overview</label>
+              <textarea id="reg-comp-desc" rows="3" class="form-control" v-model="companyForm.description" placeholder="Briefly tell us about your organization..."></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2.5 fw-semibold text-white mt-3" :disabled="loading">
+            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Register Company
+          </button>
+        </form>
+
+        <div class="text-center mt-4">
+          <p class="text-slate-400 small mb-0">
+            Already have an account?
+            <a href="#" @click.prevent="switchView('company-login')" class="auth-link ms-1">Sign In</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN DASHBOARD VIEW -->
+    <div v-else-if="currentView === 'admin-dashboard'">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-slate-900 border-bottom border-slate-800 py-3">
+        <div class="container">
+          <a href="#" class="navbar-brand fw-bold text-white d-flex align-items-center gap-2">
+            <i class="bi bi-shield-check text-indigo-400"></i>
+            <span>Placement Admin</span>
+          </a>
+          <div class="ms-auto d-flex align-items-center gap-3">
+            <span class="text-slate-300 small">Logged in as {{ user?.email }}</span>
+            <button @click="handleLogout" class="btn btn-outline-danger btn-sm px-3 rounded-2">
+              <i class="bi bi-box-arrow-right me-1"></i> Logout
+            </button>
+          </div>
+        </div>
+      </nav>
+      <div class="container py-5">
+        <div class="glass-card p-5 text-center">
+          <div class="mb-4">
+            <i class="bi bi-shield-check text-indigo-400 display-1"></i>
+          </div>
+          <h1 class="fw-bold text-white mb-2">{{ dashboardMessage || 'Welcome Admin' }}</h1>
+          <p class="text-slate-400 max-w-md mx-auto mb-4">
+            System Administrator dashboard verified. Complete controls will follow in subsequent milestones.
+          </p>
+          <span class="badge bg-indigo-500/20 text-indigo-300 px-3 py-2 border border-indigo-500/30 rounded-pill small">
+            Admin Access Verified
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENT DASHBOARD VIEW -->
+    <div v-else-if="currentView === 'student-dashboard'">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-slate-900 border-bottom border-slate-800 py-3">
+        <div class="container">
+          <a href="#" class="navbar-brand fw-bold text-white d-flex align-items-center gap-2">
+            <i class="bi bi-person-workspace text-indigo-400"></i>
+            <span>Placement Student</span>
+          </a>
+          <div class="ms-auto d-flex align-items-center gap-3">
+            <span class="text-slate-300 small">Logged in as {{ user?.email }}</span>
+            <button @click="handleLogout" class="btn btn-outline-danger btn-sm px-3 rounded-2">
+              <i class="bi bi-box-arrow-right me-1"></i> Logout
+            </button>
+          </div>
+        </div>
+      </nav>
+      <div class="container py-5">
+        <div class="glass-card p-5 text-center">
+          <div class="mb-4">
+            <i class="bi bi-person-workspace text-indigo-400 display-1"></i>
+          </div>
+          <h1 class="fw-bold text-white mb-2">{{ dashboardMessage || 'Welcome Student' }}</h1>
+          <p class="text-slate-400 max-w-md mx-auto mb-4">
+            Student profile dashboard verified. Access to placement drives and job application features will follow in subsequent milestones.
+          </p>
+          <span class="badge bg-indigo-500/20 text-indigo-300 px-3 py-2 border border-indigo-500/30 rounded-pill small">
+            Student Access Verified
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPANY DASHBOARD VIEW -->
+    <div v-else-if="currentView === 'company-dashboard'">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-slate-900 border-bottom border-slate-800 py-3">
+        <div class="container">
+          <a href="#" class="navbar-brand fw-bold text-white d-flex align-items-center gap-2">
+            <i class="bi bi-building text-indigo-400"></i>
+            <span>Placement Company</span>
+          </a>
+          <div class="ms-auto d-flex align-items-center gap-3">
+            <span class="text-slate-300 small">Logged in as {{ user?.email }}</span>
+            <button @click="handleLogout" class="btn btn-outline-danger btn-sm px-3 rounded-2">
+              <i class="bi bi-box-arrow-right me-1"></i> Logout
+            </button>
+          </div>
+        </div>
+      </nav>
+      <div class="container py-5">
+        <div class="glass-card p-5 text-center">
+          <div class="mb-4">
+            <i class="bi bi-building text-indigo-400 display-1"></i>
+          </div>
+          <h1 class="fw-bold text-white mb-2">{{ dashboardMessage || 'Welcome Company' }}</h1>
+          <p class="text-slate-400 max-w-md mx-auto mb-4">
+            Company partner dashboard verified. Creation of drives and applicant review tools will follow in subsequent milestones.
+          </p>
+          <span class="badge bg-indigo-500/20 text-indigo-300 px-3 py-2 border border-indigo-500/30 rounded-pill small">
+            Company Access Verified
+          </span>
+        </div>
+      </div>
+    </div>
+    {% endraw %}
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const currentView = ref('{{ start_view }}');
+        const user = ref(null);
+        const error = ref('');
+        const success = ref('');
+        const loading = ref(false);
+        const showPassword = ref(false);
+        const dashboardMessage = ref('');
+
+        const loginForm = ref({ email: '', password: '' });
+        const studentForm = ref({
+          email: '', password: '', confirm_password: '', full_name: '',
+          phone: '', branch: '', cgpa: null, graduation_year: null,
+          skills: '', experience: ''
+        });
+        const companyForm = ref({
+          email: '', password: '', confirm_password: '', company_name: '',
+          hr_contact: '', website: '', industry: '', location: '', description: ''
+        });
+
+        // Check if user session already exists
+        const checkSession = async () => {
+          try {
+            const res = await axios.get('/api/current-user');
+            if (res.data.logged_in) {
+              user.value = res.data.user;
+              redirectToDashboard(res.data.user.role);
+            }
+          } catch (err) {
+            console.error("Session check failed", err);
+          }
+        };
+
+        const redirectToDashboard = (role) => {
+          if (role === 'Admin') {
+            currentView.value = 'admin-dashboard';
+            fetchDashboardData('/admin');
+          } else if (role === 'Student') {
+            currentView.value = 'student-dashboard';
+            fetchDashboardData('/student');
+          } else if (role === 'Company') {
+            currentView.value = 'company-dashboard';
+            fetchDashboardData('/company');
+          }
+        };
+
+        const fetchDashboardData = async (endpoint) => {
+          try {
+            const res = await axios.get(endpoint);
+            dashboardMessage.value = res.data.message;
+          } catch (err) {
+            dashboardMessage.value = 'Failed to load verified data.';
+          }
+        };
+
+        const switchView = (view) => {
+          currentView.value = view;
+          error.value = '';
+          success.value = '';
+        };
+
+        const handleLogin = async (role) => {
+          error.value = '';
+          if (!loginForm.value.email || !loginForm.value.password) {
+            error.value = 'Please provide both email and password.';
+            return;
+          }
+          loading.value = true;
+          try {
+            const res = await axios.post('/login', {
+              email: loginForm.value.email,
+              password: loginForm.value.password,
+              role: role
+            });
+            user.value = res.data.user;
+            redirectToDashboard(res.data.user.role);
+          } catch (err) {
+            if (err.response && err.response.data && err.response.data.message) {
+              error.value = err.response.data.message;
+            } else {
+              error.value = 'Authentication failed. Please try again.';
+            }
+          } finally {
+            loading.value = false;
+          }
+        };
+
+        const handleRegisterStudent = async () => {
+          error.value = '';
+          success.value = '';
+
+          if (!studentForm.value.email || !studentForm.value.password || !studentForm.value.full_name) {
+            error.value = 'Email, password, and full name are required.';
+            return;
+          }
+          if (studentForm.value.password !== studentForm.value.confirm_password) {
+            error.value = 'Passwords do not match.';
+            return;
+          }
+          if (studentForm.value.cgpa !== null && (studentForm.value.cgpa < 0 || studentForm.value.cgpa > 10)) {
+            error.value = 'CGPA must be between 0.0 and 10.0';
+            return;
+          }
+
+          loading.value = true;
+          try {
+            const payload = { ...studentForm.value };
+            delete payload.confirm_password;
+            
+            const res = await axios.post('/register/student', payload);
+            success.value = res.data.message + ' Redirecting to login...';
+            setTimeout(() => {
+              switchView('student-login');
+              // Clear form
+              studentForm.value = {
+                email: '', password: '', confirm_password: '', full_name: '',
+                phone: '', branch: '', cgpa: null, graduation_year: null,
+                skills: '', experience: ''
+              };
+            }, 2000);
+          } catch (err) {
+            if (err.response && err.response.data && err.response.data.message) {
+              error.value = err.response.data.message;
+            } else {
+              error.value = 'Registration failed. Please check your fields.';
+            }
+          } finally {
+            loading.value = false;
+          }
+        };
+
+        const handleRegisterCompany = async () => {
+          error.value = '';
+          success.value = '';
+
+          if (!companyForm.value.email || !companyForm.value.password || !companyForm.value.company_name || !companyForm.value.hr_contact) {
+            error.value = 'Email, password, company name, and HR contact are required.';
+            return;
+          }
+          if (companyForm.value.password !== companyForm.value.confirm_password) {
+            error.value = 'Passwords do not match.';
+            return;
+          }
+
+          loading.value = true;
+          try {
+            const payload = { ...companyForm.value };
+            delete payload.confirm_password;
+
+            const res = await axios.post('/register/company', payload);
+            success.value = res.data.message + ' Redirecting to login...';
+            setTimeout(() => {
+              switchView('company-login');
+              // Clear form
+              companyForm.value = {
+                email: '', password: '', confirm_password: '', company_name: '',
+                hr_contact: '', website: '', industry: '', location: '', description: ''
+              };
+            }, 2500);
+          } catch (err) {
+            if (err.response && err.response.data && err.response.data.message) {
+              error.value = err.response.data.message;
+            } else {
+              error.value = 'Registration failed. Please check your fields.';
+            }
+          } finally {
+            loading.value = false;
+          }
+        };
+
+        const handleLogout = async () => {
+          try {
+            await axios.post('/logout');
+          } catch (err) {
+            console.error("Logout request failed", err);
+          } finally {
+            user.value = null;
+            loginForm.value = { email: '', password: '' };
+            switchView('home');
+          }
+        };
+
+        onMounted(() => {
+          checkSession();
+        });
+
+        return {
+          currentView,
+          user,
+          error,
+          success,
+          loading,
+          showPassword,
+          dashboardMessage,
+          loginForm,
+          studentForm,
+          companyForm,
+          switchView,
+          handleLogin,
+          handleRegisterStudent,
+          handleRegisterCompany,
+          handleLogout
+        };
+      }
+    }).mount('#app');
+  </script>
+  <!-- Bootstrap 5 Bundle JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

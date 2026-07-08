@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect
+from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_security import SQLAlchemyUserDatastore, auth_required, current_user, login_user, logout_user
 from flask_cors import CORS
@@ -80,6 +81,10 @@ def student_dashboard_page():
 def company_dashboard_page():
     if current_user.role != "Company":
         return redirect("/")
+    company = Company.query.filter_by(user_id=current_user.id).first()
+    if not company or company.approval_status != "Approved" or company.is_blacklisted:
+        logout_user()
+        return redirect("/company-login")
     return render_template("company/dashboard.html")
 
 @app.route("/api/current-user", methods=["GET"])
@@ -540,6 +545,218 @@ def admin_remove_application(app_id):
     db.session.delete(appln)
     db.session.commit()
     return jsonify({"message": "Application removed successfully."})
+
+# ================= COMPANY PORTAL APIS =================
+
+@app.route("/api/company/stats", methods=["GET"])
+@auth_required()
+def company_stats():
+    if current_user.role != "Company":
+        return jsonify({"message": "Unauthorized"}), 403
+    
+    company = Company.query.filter_by(user_id=current_user.id).first()
+    if not company:
+        return jsonify({"message": "Company profile not found"}), 404
+        
+    drives_count = PlacementDrive.query.filter_by(company_id=company.company_id).count()
+    
+    # Received applications count across all company drives
+    drive_ids = [d.drive_id for d in PlacementDrive.query.filter_by(company_id=company.company_id).all()]
+    applications_count = Application.query.filter(Application.drive_id.in_(drive_ids)).count() if drive_ids else 0
+    
+    # Shortlisted candidates count across all company drives
+    shortlisted_count = Application.query.filter(
+        Application.drive_id.in_(drive_ids),
+        Application.status == "Shortlisted"
+    ).count() if drive_ids else 0
+    
+    return jsonify({
+        "drives_count": drives_count,
+        "applications_count": applications_count,
+        "shortlisted_count": shortlisted_count
+    })
+
+@app.route("/api/company/drives", methods=["GET", "POST"])
+@auth_required()
+def company_drives():
+    if current_user.role != "Company":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    company = Company.query.filter_by(user_id=current_user.id).first()
+    if not company:
+        return jsonify({"message": "Company profile not found"}), 404
+
+    if request.method == "POST":
+        data = request.get_json()
+        job_title = data.get("job_title")
+        if not job_title:
+            return jsonify({"message": "Job title is required."}), 400
+            
+        deadline = None
+        if data.get("application_deadline"):
+            try:
+                deadline = datetime.strptime(data.get("application_deadline"), "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"message": "Invalid date format for deadline. Use YYYY-MM-DD"}), 400
+
+        drive = PlacementDrive(
+            company_id=company.company_id,
+            job_title=job_title,
+            job_description=data.get("job_description"),
+            eligibility_criteria=data.get("eligibility_criteria"),
+            application_deadline=deadline,
+            salary=data.get("salary"),
+            location=data.get("location"),
+            skills_required=data.get("skills_required"),
+            benefits=data.get("benefits"),
+            status="Pending"  # Requires Admin Approval
+        )
+        db.session.add(drive)
+        db.session.commit()
+        return jsonify({"message": "Placement drive posted successfully. Awaiting Admin approval.", "drive_id": drive.drive_id}), 201
+
+    # GET method
+    drives = PlacementDrive.query.filter_by(company_id=company.company_id).all()
+    res = []
+    for d in drives:
+        res.append({
+            "drive_id": d.drive_id,
+            "job_title": d.job_title,
+            "job_description": d.job_description,
+            "eligibility_criteria": d.eligibility_criteria,
+            "application_deadline": d.application_deadline.strftime("%Y-%m-%d") if d.application_deadline else None,
+            "status": d.status,
+            "salary": d.salary,
+            "location": d.location,
+            "skills_required": d.skills_required,
+            "benefits": d.benefits
+        })
+    return jsonify(res)
+
+@app.route("/api/company/drives/<int:drive_id>/toggle-status", methods=["POST"])
+@auth_required()
+def company_toggle_drive_status(drive_id):
+    if current_user.role != "Company":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    company = Company.query.filter_by(user_id=current_user.id).first()
+    if not company:
+        return jsonify({"message": "Company profile not found"}), 404
+        
+    drive = PlacementDrive.query.filter_by(drive_id=drive_id, company_id=company.company_id).first_or_404()
+    
+    # Can only manage if approved/active/closed
+    if drive.status not in ["Approved", "Active", "Closed"]:
+        return jsonify({"message": "Drive status cannot be toggled because it is not approved by the administrator."}), 400
+        
+    if drive.status == "Closed":
+        drive.status = "Active"
+    else:
+        drive.status = "Closed"
+        
+    db.session.commit()
+    return jsonify({"message": f"Drive status updated to {drive.status}.", "status": drive.status})
+
+@app.route("/api/company/applications", methods=["GET"])
+@auth_required()
+def company_applications():
+    if current_user.role != "Company":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    company = Company.query.filter_by(user_id=current_user.id).first()
+    if not company:
+        return jsonify({"message": "Company profile not found"}), 404
+        
+    drive_ids = [d.drive_id for d in PlacementDrive.query.filter_by(company_id=company.company_id).all()]
+    if not drive_ids:
+        return jsonify([])
+        
+    apps = Application.query.filter(Application.drive_id.in_(drive_ids)).all()
+    res = []
+    for a in apps:
+        res.append({
+            "application_id": a.application_id,
+            "job_title": a.placement_drive.job_title,
+            "drive_id": a.drive_id,
+            "student_id": a.student_id,
+            "student_name": a.student.full_name,
+            "student_email": a.student.user.email,
+            "student_phone": a.student.phone,
+            "student_branch": a.student.branch,
+            "student_cgpa": a.student.cgpa,
+            "student_skills": a.student.skills,
+            "student_experience": a.student.experience,
+            "status": a.status,
+            "feedback": a.feedback,
+            "interview_date": a.interview_date.strftime("%Y-%m-%d %H:%M") if a.interview_date else None,
+            "application_date": a.application_date.strftime("%Y-%m-%d %H:%M") if a.application_date else None
+        })
+    return jsonify(res)
+
+@app.route("/api/company/applications/<int:app_id>/status", methods=["POST"])
+@auth_required()
+def company_update_application_status(app_id):
+    if current_user.role != "Company":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    company = Company.query.filter_by(user_id=current_user.id).first()
+    if not company:
+        return jsonify({"message": "Company profile not found"}), 404
+        
+    appln = Application.query.get_or_404(app_id)
+    if appln.placement_drive.company_id != company.company_id:
+        return jsonify({"message": "Access denied"}), 403
+        
+    data = request.get_json()
+    new_status = data.get("status")
+    if new_status not in ["Shortlisted", "Selected", "Rejected"]:
+        return jsonify({"message": "Invalid application status. Use Shortlisted, Selected, or Rejected."}), 400
+        
+    appln.status = new_status
+    if "feedback" in data:
+        appln.feedback = data.get("feedback")
+        
+    db.session.commit()
+    return jsonify({
+        "message": f"Application status updated to {new_status}.",
+        "status": new_status,
+        "feedback": appln.feedback
+    })
+
+@app.route("/api/company/applications/<int:app_id>/schedule-interview", methods=["POST"])
+@auth_required()
+def company_schedule_interview(app_id):
+    if current_user.role != "Company":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    company = Company.query.filter_by(user_id=current_user.id).first()
+    if not company:
+        return jsonify({"message": "Company profile not found"}), 404
+        
+    appln = Application.query.get_or_404(app_id)
+    if appln.placement_drive.company_id != company.company_id:
+        return jsonify({"message": "Access denied"}), 403
+        
+    data = request.get_json()
+    date_str = data.get("interview_date")
+    if not date_str:
+        return jsonify({"message": "Interview date is required."}), 400
+        
+    try:
+        # Expected format YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
+        interview_dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M")
+    except ValueError:
+        try:
+            interview_dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+        except ValueError:
+            return jsonify({"message": "Invalid date format. Use YYYY-MM-DD HH:MM"}), 400
+            
+    appln.interview_date = interview_dt
+    db.session.commit()
+    return jsonify({
+        "message": "Interview scheduled successfully.",
+        "interview_date": appln.interview_date.strftime("%Y-%m-%d %H:%M")
+    })
 
 if __name__ == "__main__":
     app.run(debug=True)

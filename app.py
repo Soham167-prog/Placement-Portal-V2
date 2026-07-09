@@ -1032,5 +1032,43 @@ Generated Electronically - Secure Verification Code: SEC-{placement.placement_id
         download_name=filename
     )
 
+# ================= ASYNCHRONOUS EXPORT APIS =================
+
+@app.route("/api/common/export-csv", methods=["POST"])
+@auth_required()
+def trigger_csv_export():
+    if current_user.role not in ["Student", "Company"]:
+        return jsonify({"message": "Access denied"}), 403
+        
+    from tasks import export_applications_csv
+    task = export_applications_csv.delay(current_user.id, current_user.role)
+    return jsonify({
+        "message": "Export task started in background.",
+        "task_id": task.id
+    }), 202
+
+@app.route("/api/common/export-status/<task_id>", methods=["GET"])
+@auth_required()
+def check_export_status(task_id):
+    if current_user.role not in ["Student", "Company"]:
+        return jsonify({"message": "Access denied"}), 403
+        
+    from celery.result import AsyncResult
+    from tasks import celery_app
+    res = AsyncResult(task_id, app=celery_app)
+    
+    if res.ready():
+        if res.successful():
+            return jsonify({
+                "status": "SUCCESS",
+                "download_url": res.result
+            })
+        else:
+            return jsonify({
+                "status": "FAILURE",
+                "message": str(res.result)
+            })
+    return jsonify({"status": "PENDING"})
+
 if __name__ == "__main__":
     app.run(debug=True)

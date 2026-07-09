@@ -271,7 +271,18 @@
         </div>
 
         <div class="glass-card p-4 shadow-sm">
-          <h5 class="fw-bold text-white mb-3">Received Candidate Applications</h5>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold text-white mb-0">Received Candidate Applications</h5>
+            <button @click="triggerCsvExport" class="btn btn-sm btn-outline-light border-secondary d-flex align-items-center gap-1.5" :disabled="exportState.loading">
+              <span v-if="exportState.loading" class="spinner-border spinner-border-sm" role="status"></span>
+              <i v-else class="bi bi-file-earmark-arrow-down-fill"></i>
+              {{ exportState.loading ? 'Exporting...' : 'Export History to CSV' }}
+            </button>
+          </div>
+          <div v-if="exportState.url" class="alert alert-success border-0 py-2 mb-3 small d-flex justify-content-between align-items-center">
+            <span>CSV Export complete!</span>
+            <a :href="exportState.url" class="btn btn-sm btn-success text-white">Download CSV</a>
+          </div>
           <div class="table-responsive">
             <table class="table table-hover align-middle">
               <thead>
@@ -555,6 +566,41 @@
           }
         };
 
+        const exportState = ref({ loading: false, url: '' });
+
+        const triggerCsvExport = async () => {
+          exportState.value.loading = true;
+          exportState.value.url = '';
+          try {
+            const res = await axios.post('/api/common/export-csv');
+            const taskId = res.data.task_id;
+            showAlert('Export job started. Compiling records...', 'info');
+            
+            const poll = setInterval(async () => {
+              try {
+                const statusRes = await axios.get(`/api/common/export-status/${taskId}`);
+                if (statusRes.data.status === 'SUCCESS') {
+                  clearInterval(poll);
+                  exportState.value.loading = false;
+                  exportState.value.url = statusRes.data.download_url;
+                  showAlert('CSV Export completed successfully!', 'success');
+                  window.location.href = statusRes.data.download_url;
+                } else if (statusRes.data.status === 'FAILURE') {
+                  clearInterval(poll);
+                  exportState.value.loading = false;
+                  showAlert('Failed to export CSV.', 'danger');
+                }
+              } catch (err) {
+                clearInterval(poll);
+                exportState.value.loading = false;
+              }
+            }, 1500);
+          } catch (err) {
+            exportState.value.loading = false;
+            showAlert('Failed to start export.', 'danger');
+          }
+        };
+
         const handleLogout = async () => {
           try {
             await axios.post('/logout');
@@ -599,6 +645,8 @@
           openInterviewModal,
           submitActionStatus,
           submitScheduleInterview,
+          exportState,
+          triggerCsvExport,
           handleLogout
         };
       }

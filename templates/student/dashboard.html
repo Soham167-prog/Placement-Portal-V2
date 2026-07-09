@@ -17,66 +17,507 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <!-- Axios CDN -->
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <style>
+    .nav-tabs .nav-link {
+      color: #94a3b8;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 1rem 1.5rem;
+    }
+    .nav-tabs .nav-link:hover {
+      color: #fff;
+      border-color: transparent;
+    }
+    .nav-tabs .nav-link.active {
+      color: #6366f1 !important;
+      background-color: transparent !important;
+      border-bottom: 2px solid #6366f1 !important;
+    }
+  </style>
 </head>
 <body>
   {% raw %}
-  <div id="app" class="container py-5">
-    <div v-if="loading" class="d-flex justify-content-center align-items-center min-vh-100">
-      <div class="spinner-border text-primary" role="status"></div>
-    </div>
-    <div v-else-if="user" class="glass-card p-5 shadow-lg max-width-800 mx-auto">
-      <div class="d-flex justify-content-between align-items-center border-bottom border-secondary pb-4 mb-4">
+  <div id="app" class="container py-4">
+    <!-- Navbar / Header -->
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-center pb-4 mb-4 border-bottom border-secondary">
+      <div class="d-flex align-items-center gap-3">
+        <div class="bg-indigo-500/20 text-indigo-300 p-2.5 rounded-3">
+          <i class="bi bi-person-workspace fs-4"></i>
+        </div>
         <div>
-          <h2 class="fw-bold tracking-tight text-white mb-1">Student Portal</h2>
-          <p class="text-slate-400 mb-0">Welcome back, {{ user.email }}</p>
+          <h2 class="fw-bold text-white mb-0">Student Portal</h2>
+          <p class="text-slate-400 mb-0">Campus Placement & Career Dashboard</p>
         </div>
-        <button @click="handleLogout" class="btn btn-outline-danger d-flex align-items-center gap-2">
-          <i class="bi bi-box-arrow-right"></i> Logout
-        </button>
+      </div>
+      <button @click="handleLogout" class="btn btn-outline-danger mt-3 mt-md-0 d-flex align-items-center gap-2">
+        <i class="bi bi-box-arrow-right"></i> Logout
+      </button>
+    </header>
+
+    <!-- Blacklist Alert -->
+    <div v-if="profile.is_blacklisted" class="alert alert-danger border-0 py-3 mb-4 rounded-3 d-flex align-items-center gap-2" role="alert">
+      <i class="bi bi-slash-circle-fill fs-5"></i>
+      <div>
+        <strong>Account Deactivated:</strong> You have been blacklisted from the placement system by the administrator. You cannot apply to any job drives.
+      </div>
+    </div>
+
+    <!-- Global Alerts -->
+    <div v-if="alert.text" :class="['alert', 'alert-' + alert.type, 'border-0', 'py-3', 'mb-4', 'text-center', 'small']" role="alert">
+      {{ alert.text }}
+    </div>
+
+    <!-- Main Navigation Tabs -->
+    <ul class="nav nav-tabs border-secondary mb-4">
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'overview' }" href="#" @click.prevent="currentTab = 'overview'">
+          <i class="bi bi-grid-fill me-2"></i> Overview
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'profile' }" href="#" @click.prevent="currentTab = 'profile'">
+          <i class="bi bi-person-lines-fill me-2"></i> Edit Profile
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'jobs' }" href="#" @click.prevent="currentTab = 'jobs'">
+          <i class="bi bi-search me-2"></i> Search Jobs
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'applications' }" href="#" @click.prevent="currentTab = 'applications'">
+          <i class="bi bi-file-earmark-text me-2"></i> My Applications
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'offers' }" href="#" @click.prevent="currentTab = 'offers'">
+          <i class="bi bi-award-fill me-2"></i> Offers & Confirmations
+        </a>
+      </li>
+    </ul>
+
+    <!-- TAB CONTENTS -->
+    <div class="tab-content">
+      
+      <!-- OVERVIEW TAB -->
+      <div v-if="currentTab === 'overview'">
+        <div class="row">
+          <!-- Profile Quick Info -->
+          <div class="col-lg-4 mb-4">
+            <div class="glass-card p-4 h-100 shadow-sm">
+              <h5 class="fw-bold text-white mb-3">Academic Summary</h5>
+              <div class="d-flex flex-column gap-2 text-slate-300">
+                <div><span class="text-slate-400 small">Name:</span> <strong class="text-white">{{ profile.full_name }}</strong></div>
+                <div><span class="text-slate-400 small">Branch:</span> <strong>{{ profile.branch || 'Not Set' }}</strong></div>
+                <div><span class="text-slate-400 small">CGPA:</span> <strong>{{ profile.cgpa || 'Not Set' }}</strong></div>
+                <div><span class="text-slate-400 small">Graduation Year:</span> <strong>{{ profile.graduation_year || 'Not Set' }}</strong></div>
+                <div>
+                  <span class="text-slate-400 small">Resume Status:</span> 
+                  <a v-if="profile.resume" :href="profile.resume" target="_blank" class="badge bg-success bg-opacity-25 text-success text-decoration-none ms-1">
+                    <i class="bi bi-file-earmark-pdf"></i> Uploaded
+                  </a>
+                  <span v-else class="badge bg-warning bg-opacity-25 text-warning ms-1">Not Uploaded</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Application Stats Card -->
+          <div class="col-lg-4 mb-4" @click="currentTab = 'applications'" style="cursor: pointer;">
+            <div class="glass-card p-4 h-100 shadow-sm d-flex flex-column justify-content-between">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Active Applications</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ stats.applications_count }}</h2>
+                </div>
+                <span class="badge bg-indigo-500/20 text-indigo-300 p-2.5 rounded-3"><i class="bi bi-file-earmark-text fs-4"></i></span>
+              </div>
+              <p class="text-slate-400 small mb-0 mt-3">View submission dates and status updates.</p>
+            </div>
+          </div>
+
+          <!-- Offers stats card -->
+          <div class="col-lg-4 mb-4" @click="currentTab = 'offers'" style="cursor: pointer;">
+            <div class="glass-card p-4 h-100 shadow-sm d-flex flex-column justify-content-between">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-slate-400 small fw-medium">Placement Offers</div>
+                  <h2 class="fw-bold text-white mt-2 mb-0">{{ stats.offers_count }}</h2>
+                </div>
+                <span class="badge bg-success bg-opacity-25 text-success p-2.5 rounded-3"><i class="bi bi-award-fill fs-4"></i></span>
+              </div>
+              <p class="text-slate-400 small mb-0 mt-3">Download offer letters and confirmations.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Interviews Table -->
+        <div class="glass-card p-4 shadow-sm mt-2">
+          <h5 class="fw-bold text-white mb-3"><i class="bi bi-calendar-check-fill text-indigo-400 me-2"></i>My Interview Schedules</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>Recruiter</th>
+                  <th>Job Position</th>
+                  <th>Scheduled Date & Time</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="interview in interviewSchedules" :key="interview.application_id" class="border-secondary">
+                  <td class="text-white fw-semibold">{{ interview.company_name }}</td>
+                  <td>{{ interview.job_title }}</td>
+                  <td class="font-monospace text-indigo-300"><i class="bi bi-clock me-1.5"></i>{{ interview.interview_date }}</td>
+                  <td><span class="badge bg-warning bg-opacity-25 text-warning">Scheduled</span></td>
+                </tr>
+                <tr v-if="interviewSchedules.length === 0">
+                  <td colspan="4" class="text-center py-4 text-slate-400">No interviews scheduled yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <div class="alert alert-info border-0 rounded-3 mb-4 p-4" style="background-color: rgba(99, 102, 241, 0.15); color: #a5b4fc;">
-        <h5 class="fw-bold"><i class="bi bi-info-circle-fill me-2"></i>Dashboard Stub</h5>
-        <p class="mb-0">Your profile and student operations are successfully authenticated. Additional features such as drive registrations and application tracking will follow in the next milestones.</p>
+      <!-- EDIT PROFILE TAB -->
+      <div v-if="currentTab === 'profile'" class="row justify-content-center">
+        <div class="col-lg-9">
+          <div class="glass-card p-5 shadow-sm">
+            <h4 class="fw-bold text-white mb-4"><i class="bi bi-person-lines-fill text-indigo-400 me-2"></i>Update Candidate Profile</h4>
+            <form @submit.prevent="handleUpdateProfile" enctype="multipart/form-data">
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="prof-name" class="form-label text-slate-300">Full Name *</label>
+                  <input type="text" id="prof-name" class="form-control" v-model="profileForm.full_name" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="prof-phone" class="form-label text-slate-300">Phone Number</label>
+                  <input type="text" id="prof-phone" class="form-control" v-model="profileForm.phone">
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="prof-branch" class="form-label text-slate-300">Academic Branch</label>
+                  <input type="text" id="prof-branch" class="form-control" v-model="profileForm.branch" placeholder="e.g. CSE">
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="prof-cgpa" class="form-label text-slate-300">CGPA</label>
+                  <input type="number" step="0.01" min="0" max="10" id="prof-cgpa" class="form-control" v-model.number="profileForm.cgpa">
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="prof-year" class="form-label text-slate-300">Graduation Year</label>
+                  <input type="number" id="prof-year" class="form-control" v-model.number="profileForm.graduation_year">
+                </div>
+                <div class="col-12 mb-3">
+                  <label for="prof-skills" class="form-label text-slate-300">Skills (Comma-separated)</label>
+                  <input type="text" id="prof-skills" class="form-control" v-model="profileForm.skills" placeholder="e.g. Java, Python, Vue, Database design">
+                </div>
+                <div class="col-12 mb-3">
+                  <label for="prof-exp" class="form-label text-slate-300">Experience / Internships</label>
+                  <textarea id="prof-exp" rows="3" class="form-control" v-model="profileForm.experience" placeholder="Detail any prior experiences, positions, or projects..."></textarea>
+                </div>
+                <div class="col-12 mb-4">
+                  <label for="prof-resume" class="form-label text-slate-300">Upload PDF Resume</label>
+                  <input type="file" id="prof-resume" ref="resumeFile" class="form-control" accept=".pdf">
+                  <span v-if="profile.resume" class="d-block small text-indigo-300 mt-1">
+                    Current Resume: <a :href="profile.resume" target="_blank" class="text-white text-decoration-underline">{{ getResumeBasename }}</a>
+                  </span>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary w-100 py-3 fw-bold text-white" :disabled="submitting">
+                <span v-if="submitting" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                Save Profile Changes
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
 
-      <div class="card bg-slate-900 border-slate-800 p-4 rounded-3 text-slate-300">
-        <h6 class="text-indigo-400 fw-bold mb-3">Portal Status</h6>
-        <div class="row">
-          <div class="col-sm-4 text-slate-400">Authenticated Role:</div>
-          <div class="col-sm-8 text-white fw-semibold">{{ user.role }}</div>
+      <!-- SEARCH JOBS TAB -->
+      <div v-if="currentTab === 'jobs'">
+        <!-- Search bar -->
+        <div class="glass-card p-4 shadow-sm mb-4">
+          <div class="row align-items-center">
+            <div class="col-md-12">
+              <label class="form-label text-slate-300 small">Search Active Job Postings</label>
+              <div class="input-group">
+                <span class="input-group-text bg-slate-900 border-slate-800 text-slate-400"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" v-model="jobSearchVal" @input="debouncedFetchDrives" placeholder="Search by Company Name, Job Title, or Skills required...">
+              </div>
+            </div>
+          </div>
         </div>
-        <hr class="border-secondary">
+
         <div class="row">
-          <div class="col-sm-4 text-slate-400">System Connection:</div>
-          <div class="col-sm-8 text-success fw-semibold"><i class="bi bi-cloud-check-fill me-1"></i> Connected to Placement API</div>
+          <div v-for="drive in drives" :key="drive.drive_id" class="col-lg-6 mb-4">
+            <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between shadow-sm">
+              <div>
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <span class="badge bg-indigo-500/20 text-indigo-300 px-2.5 py-1 small fw-semibold text-uppercase">{{ drive.company_name }}</span>
+                  <span class="text-slate-400 small"><i class="bi bi-calendar-event me-1"></i>Deadline: {{ drive.application_deadline || '-' }}</span>
+                </div>
+                <h4 class="fw-bold text-white mb-2">{{ drive.job_title }}</h4>
+                
+                <div class="d-flex gap-4 mb-3 text-slate-300 small">
+                  <span><i class="bi bi-wallet2 text-slate-400 me-1.5"></i><strong>{{ drive.salary }} LPA</strong></span>
+                  <span><i class="bi bi-geo-alt text-slate-400 me-1.5"></i>{{ drive.location || '-' }}</span>
+                </div>
+
+                <hr class="border-secondary my-3">
+                <p class="text-slate-300 small mb-3 line-clamp-3">{{ drive.job_description || 'No description provided.' }}</p>
+                
+                <div class="mb-3">
+                  <span class="small text-slate-400 block mb-1">Required Skills:</span>
+                  <p class="small text-white fw-medium mb-0">{{ drive.skills_required || 'None specified.' }}</p>
+                </div>
+                <div v-if="drive.eligibility_criteria" class="mb-3">
+                  <span class="small text-slate-400 block mb-1">Eligibility Criteria:</span>
+                  <p class="small text-white fw-medium mb-0">{{ drive.eligibility_criteria }}</p>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <button v-if="drive.has_applied" class="btn btn-outline-success w-100 py-2.5 fw-bold" disabled>
+                  <i class="bi bi-check2-circle me-1"></i> Applied to Drive
+                </button>
+                <button v-else-if="profile.is_blacklisted" class="btn btn-outline-secondary w-100 py-2.5" disabled>
+                  Applications Disabled
+                </button>
+                <button v-else @click="applyForJob(drive.drive_id)" class="btn btn-primary w-100 py-2.5 fw-bold text-white">
+                  Apply Now
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-if="drives.length === 0" class="col-12 text-center py-5 text-slate-400">
+            <i class="bi bi-briefcase fs-1 d-block mb-2"></i>
+            No active placement drives found matching search query.
+          </div>
         </div>
       </div>
+
+      <!-- MY APPLICATIONS TAB -->
+      <div v-if="currentTab === 'applications'">
+        <div class="glass-card p-4 shadow-sm">
+          <h5 class="fw-bold text-white mb-3">Submitted Job Applications</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>Employer</th>
+                  <th>Job Position</th>
+                  <th>Application Date</th>
+                  <th>Interview Details</th>
+                  <th>Status</th>
+                  <th>Company Feedback</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="app in applications" :key="app.application_id" class="border-secondary">
+                  <td class="text-white fw-bold">{{ app.company_name }}</td>
+                  <td class="text-white fw-semibold">{{ app.job_title }}</td>
+                  <td>{{ app.application_date || '-' }}</td>
+                  <td>
+                    <span v-if="app.interview_date" class="text-warning small d-inline-flex align-items-center gap-1.5 font-monospace">
+                      <i class="bi bi-clock-fill"></i> {{ app.interview_date }}
+                    </span>
+                    <span v-else class="text-slate-400 small">No interview scheduled</span>
+                  </td>
+                  <td>
+                    <span v-if="app.status === 'Shortlisted'" class="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1">Shortlisted</span>
+                    <span v-else-if="app.status === 'Selected'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Selected</span>
+                    <span v-else-if="app.status === 'Rejected'" class="badge bg-danger bg-opacity-25 text-danger px-2.5 py-1">Rejected</span>
+                    <span v-else class="badge bg-indigo-500/20 text-indigo-300 px-2.5 py-1">Applied</span>
+                  </td>
+                  <td>
+                    <span v-if="app.feedback" class="small text-slate-300 italic">"{{ app.feedback }}"</span>
+                    <span v-else class="text-slate-500 small">-</span>
+                  </td>
+                </tr>
+                <tr v-if="applications.length === 0">
+                  <td colspan="6" class="text-center py-4 text-slate-400">You have not submitted any job applications yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- OFFERS & PLACEMENT TAB -->
+      <div v-if="currentTab === 'offers'">
+        <div class="glass-card p-4 shadow-sm">
+          <h5 class="fw-bold text-white mb-3">Offers & Placement Confirmations</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>Employer</th>
+                  <th>Position Designation</th>
+                  <th>CTC Package</th>
+                  <th>Expected Joining Date</th>
+                  <th>Confirmation Letter</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="offer in placements" :key="offer.placement_id" class="border-secondary">
+                  <td class="text-white fw-bold">{{ offer.company_name }}</td>
+                  <td class="text-white fw-semibold">{{ offer.position || 'Graduate Engineer' }}</td>
+                  <td>{{ offer.salary }} LPA</td>
+                  <td>{{ offer.joining_date || '-' }}</td>
+                  <td>
+                    <a :href="'/api/student/placements/' + offer.placement_id + '/download-offer'" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1">
+                      <i class="bi bi-download"></i> Download Offer
+                    </a>
+                  </td>
+                </tr>
+                <tr v-if="placements.length === 0">
+                  <td colspan="5" class="text-center py-4 text-slate-400">No placements or offers verified yet. Once you are selected by a recruiter, your letter will appear here.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
   {% endraw %}
 
   <script>
-    const { createApp, ref, onMounted } = Vue;
+    const { createApp, ref, onMounted, computed } = Vue;
     createApp({
       setup() {
-        const user = ref(null);
-        const loading = ref(true);
+        const currentTab = ref('overview');
+        const profile = ref({ is_blacklisted: false, full_name: '', resume: '' });
+        
+        // Editable fields
+        const profileForm = ref({ full_name: '', phone: '', branch: '', cgpa: null, graduation_year: null, skills: '', experience: '' });
+        const resumeFile = ref(null);
 
-        const checkSession = async () => {
+        const stats = ref({ applications_count: 0, offers_count: 0 });
+        const drives = ref([]);
+        const applications = ref([]);
+        const placements = ref([]);
+
+        const jobSearchVal = ref('');
+        const alert = ref({ text: '', type: '' });
+        const submitting = ref(false);
+
+        const showAlert = (text, type = 'success') => {
+          alert.value = { text, type };
+          setTimeout(() => { alert.value = { text: '', type: '' }; }, 4000);
+        };
+
+        // Fetch profile
+        const fetchProfile = async () => {
           try {
-            const res = await axios.get('/api/current-user');
-            if (res.data.logged_in && res.data.user.role === 'Student') {
-              user.value = res.data.user;
-            } else {
-              window.location.href = '/student-login';
-            }
+            const res = await axios.get('/api/student/profile');
+            profile.value = res.data;
+            profileForm.value = {
+              full_name: res.data.full_name || '',
+              phone: res.data.phone || '',
+              branch: res.data.branch || '',
+              cgpa: res.data.cgpa,
+              graduation_year: res.data.graduation_year,
+              skills: res.data.skills || '',
+              experience: res.data.experience || ''
+            };
           } catch (err) {
-            window.location.href = '/student-login';
-          } finally {
-            loading.value = false;
+            console.error("Failed to load profile.", err);
           }
         };
+
+        // Update profile
+        const handleUpdateProfile = async () => {
+          submitting.value = true;
+          try {
+            // Build FormData for multipart upload
+            const fd = new FormData();
+            fd.append('full_name', profileForm.value.full_name);
+            fd.append('phone', profileForm.value.phone);
+            fd.append('branch', profileForm.value.branch);
+            if (profileForm.value.cgpa !== null) fd.append('cgpa', profileForm.value.cgpa);
+            if (profileForm.value.graduation_year !== null) fd.append('graduation_year', profileForm.value.graduation_year);
+            fd.append('skills', profileForm.value.skills);
+            fd.append('experience', profileForm.value.experience);
+
+            if (resumeFile.value && resumeFile.value.files[0]) {
+              fd.append('resume_file', resumeFile.value.files[0]);
+            }
+
+            const res = await axios.post('/api/student/profile', fd, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            showAlert(res.data.message);
+            fetchProfile();
+          } catch (err) {
+            showAlert('Could not save profile changes.', 'danger');
+          } finally {
+            submitting.value = false;
+          }
+        };
+
+        // Fetch Drives
+        const fetchDrives = async () => {
+          try {
+            const res = await axios.get('/api/student/drives', {
+              params: { query: jobSearchVal.value }
+            });
+            drives.value = res.data;
+          } catch (err) {
+            showAlert('Failed to fetch job postings.', 'danger');
+          }
+        };
+
+        let driveSearchTimeout = null;
+        const debouncedFetchDrives = () => {
+          clearTimeout(driveSearchTimeout);
+          driveSearchTimeout = setTimeout(fetchDrives, 300);
+        };
+
+        // Fetch Applications
+        const fetchApplications = async () => {
+          try {
+            const res = await axios.get('/api/student/applications');
+            applications.value = res.data;
+            stats.value.applications_count = res.data.length;
+          } catch (err) {
+            console.error(err);
+          }
+        };
+
+        // Fetch Offers
+        const fetchOffers = async () => {
+          try {
+            const res = await axios.get('/api/student/placements');
+            placements.value = res.data;
+            stats.value.offers_count = res.data.length;
+          } catch (err) {
+            console.error(err);
+          }
+        };
+
+        // Apply for Job
+        const applyForJob = async (driveId) => {
+          try {
+            const res = await axios.post(`/api/student/drives/${driveId}/apply`);
+            showAlert(res.data.message);
+            fetchDrives();
+            fetchApplications();
+          } catch (err) {
+            showAlert(err.response?.data?.message || 'Error sending application.', 'danger');
+          }
+        };
+
+        // Upcoming interviews agenda
+        const interviewSchedules = computed(() => {
+          return applications.value.filter(a => a.status === 'Shortlisted' && a.interview_date);
+        });
+
+        const getResumeBasename = computed(() => {
+          if (!profile.value.resume) return '';
+          const parts = profile.value.resume.split('/');
+          return parts[parts.length - 1];
+        });
 
         const handleLogout = async () => {
           try {
@@ -87,9 +528,32 @@
           }
         };
 
-        onMounted(checkSession);
+        onMounted(() => {
+          fetchProfile();
+          fetchDrives();
+          fetchApplications();
+          fetchOffers();
+        });
 
-        return { user, loading, handleLogout };
+        return {
+          currentTab,
+          profile,
+          profileForm,
+          resumeFile,
+          stats,
+          drives,
+          applications,
+          placements,
+          jobSearchVal,
+          alert,
+          submitting,
+          interviewSchedules,
+          getResumeBasename,
+          handleUpdateProfile,
+          debouncedFetchDrives,
+          applyForJob,
+          handleLogout
+        };
       }
     }).mount('#app');
   </script>

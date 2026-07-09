@@ -5,7 +5,7 @@ from flask_security import SQLAlchemyUserDatastore, auth_required, current_user,
 from flask_cors import CORS
 from config import Config
 from extensions import db, security
-from models import User, Role, Company, Student, PlacementDrive, Application
+from models import User, Role, Company, Student, PlacementDrive, Application, Placement
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -716,6 +716,25 @@ def company_update_application_status(app_id):
     if "feedback" in data:
         appln.feedback = data.get("feedback")
         
+    if new_status == "Selected":
+        import datetime
+        existing_placement = Placement.query.filter_by(
+            student_id=appln.student_id,
+            company_id=company.company_id,
+            drive_id=appln.drive_id
+        ).first()
+        if not existing_placement:
+            new_placement = Placement(
+                student_id=appln.student_id,
+                company_id=company.company_id,
+                drive_id=appln.drive_id,
+                position=appln.placement_drive.job_title,
+                salary=appln.placement_drive.salary,
+                joining_date=datetime.date.today() + datetime.timedelta(days=90),
+                offer_letter=f"offer_{appln.application_id}.txt"
+            )
+            db.session.add(new_placement)
+        
     db.session.commit()
     return jsonify({
         "message": f"Application status updated to {new_status}.",
@@ -757,6 +776,260 @@ def company_schedule_interview(app_id):
         "message": "Interview scheduled successfully.",
         "interview_date": appln.interview_date.strftime("%Y-%m-%d %H:%M")
     })
+
+# ================= STUDENT PORTAL APIS =================
+
+import os
+from flask import send_file
+import io
+
+@app.route("/api/student/profile", methods=["GET", "POST"])
+@auth_required()
+def student_profile():
+    if current_user.role != "Student":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    student = Student.query.filter_by(user_id=current_user.id).first()
+    if not student:
+        return jsonify({"message": "Student profile not found"}), 404
+        
+    if request.method == "POST":
+        if request.content_type and "multipart/form-data" in request.content_type:
+            student.full_name = request.form.get("full_name", student.full_name)
+            student.phone = request.form.get("phone", student.phone)
+            student.branch = request.form.get("branch", student.branch)
+            try:
+                student.cgpa = float(request.form.get("cgpa")) if request.form.get("cgpa") else student.cgpa
+            except ValueError:
+                pass
+            try:
+                student.graduation_year = int(request.form.get("graduation_year")) if request.form.get("graduation_year") else student.graduation_year
+            except ValueError:
+                pass
+            student.skills = request.form.get("skills", student.skills)
+            student.experience = request.form.get("experience", student.experience)
+            
+            # File upload for resume
+            if "resume_file" in request.files:
+                file = request.files["resume_file"]
+                if file and file.filename:
+                    upload_dir = os.path.join(app.root_path, "static", "uploads", "resumes")
+                    os.makedirs(upload_dir, exist_ok=True)
+                    filename = f"resume_{student.student_id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
+                    file.save(os.path.join(upload_dir, filename))
+                    student.resume = f"/static/uploads/resumes/{filename}"
+        else:
+            data = request.get_json()
+            student.full_name = data.get("full_name", student.full_name)
+            student.phone = data.get("phone", student.phone)
+            student.branch = data.get("branch", student.branch)
+            student.cgpa = data.get("cgpa", student.cgpa)
+            student.graduation_year = data.get("graduation_year", student.graduation_year)
+            student.skills = data.get("skills", student.skills)
+            student.experience = data.get("experience", student.experience)
+            if "resume" in data:
+                student.resume = data.get("resume")
+                
+        db.session.commit()
+        return jsonify({"message": "Profile updated successfully.", "resume_url": student.resume})
+        
+    return jsonify({
+        "student_id": student.student_id,
+        "full_name": student.full_name,
+        "phone": student.phone,
+        "branch": student.branch,
+        "cgpa": student.cgpa,
+        "graduation_year": student.graduation_year,
+        "skills": student.skills,
+        "resume": student.resume,
+        "experience": student.experience,
+        "is_blacklisted": student.is_blacklisted
+    })
+
+@app.route("/api/student/drives", methods=["GET"])
+@auth_required()
+def student_list_drives():
+    if current_user.role != "Student":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    student = Student.query.filter_by(user_id=current_user.id).first()
+    if not student:
+        return jsonify({"message": "Student profile not found"}), 404
+        
+    query_str = request.args.get("query", "").strip()
+    
+    # Base query: Approved drives
+    drives_query = PlacementDrive.query.filter(PlacementDrive.status.in_(["Approved", "Active"]))
+    
+    # If search query exists, match by company name, job position (title), or required skills
+    if query_str:
+        from models import Company
+        drives_query = drives_query.join(Company).filter(
+            db.or_(
+                Company.company_name.ilike(f"%{query_str}%"),
+                PlacementDrive.job_title.ilike(f"%{query_str}%"),
+                PlacementDrive.skills_required.ilike(f"%{query_str}%")
+            )
+        )
+        
+    drives = drives_query.all()
+    applied_drive_ids = [a.drive_id for a in student.applications]
+    
+    res = []
+    for d in drives:
+        res.append({
+            "drive_id": d.drive_id,
+            "company_name": d.company.company_name,
+            "job_title": d.job_title,
+            "job_description": d.job_description,
+            "eligibility_criteria": d.eligibility_criteria,
+            "application_deadline": d.application_deadline.strftime("%Y-%m-%d") if d.application_deadline else None,
+            "salary": d.salary,
+            "location": d.location,
+            "skills_required": d.skills_required,
+            "benefits": d.benefits,
+            "has_applied": d.drive_id in applied_drive_ids
+        })
+    return jsonify(res)
+
+@app.route("/api/student/drives/<int:drive_id>/apply", methods=["POST"])
+@auth_required()
+def student_apply_drive(drive_id):
+    if current_user.role != "Student":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    student = Student.query.filter_by(user_id=current_user.id).first()
+    if not student:
+        return jsonify({"message": "Student profile not found"}), 404
+        
+    if student.is_blacklisted:
+        return jsonify({"message": "You are blacklisted and cannot apply to placement drives."}), 403
+        
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    if drive.status not in ["Approved", "Active"]:
+        return jsonify({"message": "This placement drive is closed or inactive."}), 400
+        
+    existing = Application.query.filter_by(student_id=student.student_id, drive_id=drive_id).first()
+    if existing:
+        return jsonify({"message": "You have already applied to this drive."}), 400
+        
+    appln = Application(
+        student_id=student.student_id,
+        drive_id=drive_id,
+        status="Applied"
+    )
+    db.session.add(appln)
+    db.session.commit()
+    return jsonify({"message": "Applied successfully!", "application_id": appln.application_id})
+
+@app.route("/api/student/applications", methods=["GET"])
+@auth_required()
+def student_applications():
+    if current_user.role != "Student":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    student = Student.query.filter_by(user_id=current_user.id).first()
+    if not student:
+        return jsonify({"message": "Student profile not found"}), 404
+        
+    apps = Application.query.filter_by(student_id=student.student_id).all()
+    res = []
+    for a in apps:
+        res.append({
+            "application_id": a.application_id,
+            "drive_id": a.drive_id,
+            "job_title": a.placement_drive.job_title,
+            "company_name": a.placement_drive.company.company_name,
+            "application_date": a.application_date.strftime("%Y-%m-%d %H:%M") if a.application_date else None,
+            "status": a.status,
+            "feedback": a.feedback,
+            "interview_date": a.interview_date.strftime("%Y-%m-%d %H:%M") if a.interview_date else None
+        })
+    return jsonify(res)
+
+@app.route("/api/student/placements", methods=["GET"])
+@auth_required()
+def student_placements():
+    if current_user.role != "Student":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    student = Student.query.filter_by(user_id=current_user.id).first()
+    if not student:
+        return jsonify({"message": "Student profile not found"}), 404
+        
+    placements = Placement.query.filter_by(student_id=student.student_id).all()
+    res = []
+    for p in placements:
+        res.append({
+            "placement_id": p.placement_id,
+            "company_name": p.company.company_name,
+            "position": p.position,
+            "salary": p.salary,
+            "joining_date": p.joining_date.strftime("%Y-%m-%d") if p.joining_date else None,
+            "offer_letter": p.offer_letter
+        })
+    return jsonify(res)
+
+@app.route("/api/student/placements/<int:placement_id>/download-offer", methods=["GET"])
+@auth_required()
+def student_download_offer(placement_id):
+    if current_user.role != "Student":
+        return jsonify({"message": "Unauthorized"}), 403
+        
+    student = Student.query.filter_by(user_id=current_user.id).first()
+    if not student:
+        return jsonify({"message": "Student profile not found"}), 404
+        
+    placement = Placement.query.get_or_404(placement_id)
+    if placement.student_id != student.student_id:
+        return jsonify({"message": "Access denied"}), 403
+        
+    current_date = datetime.utcnow().strftime("%Y-%m-%d")
+    joining_date_str = placement.joining_date.strftime("%B %d, %Y") if placement.joining_date else "TBD"
+    
+    letter_content = f"""========================================================================
+                     CAMPUS PLACEMENT CONFIRMATION LETTER
+========================================================================
+Date: {current_date}
+Ref: PP-{placement.placement_id:04d}
+
+Dear {student.full_name},
+
+We are pleased to issue this Placement Confirmation Letter on behalf of
+the Campus Recruitment Committee. 
+
+Following your successful performance and shortlisting by recruiters,
+you have been offered employment with the following details:
+
+Candidate Name:    {student.full_name}
+Department/Branch: {student.branch or 'N/A'}
+Selected Company:  {placement.company.company_name}
+Designation:       {placement.position or 'Graduate Trainee'}
+Annual CTC:        {placement.salary or 0.0} LPA
+Expected Joining:  {joining_date_str}
+
+This letter serves as an official confirmation of placement from our
+end. Your actual joining instructions and official onboarding package
+will be shared separately by the company's Human Resources department.
+
+We congratulate you on this milestone and wish you a successful career.
+
+Sincerely,
+
+Campus Placement Office
+Placement System Verification
+------------------------------------------------------------------------
+Generated Electronically - Secure Verification Code: SEC-{placement.placement_id}-{student.student_id}
+========================================================================
+"""
+    mem_file = io.BytesIO(letter_content.encode('utf-8'))
+    filename = f"OfferLetter_{placement.company.company_name.replace(' ', '_')}_{student.full_name.replace(' ', '_')}.txt"
+    return send_file(
+        mem_file,
+        mimetype="text/plain",
+        as_attachment=True,
+        download_name=filename
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

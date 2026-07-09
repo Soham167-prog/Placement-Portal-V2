@@ -324,7 +324,9 @@
                   </td>
                   <td>
                     <span v-if="app.status === 'Shortlisted'" class="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1">Shortlisted</span>
-                    <span v-else-if="app.status === 'Selected'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Selected</span>
+                    <span v-else-if="app.status === 'Interview'" class="badge bg-info bg-opacity-25 text-info px-2.5 py-1">Interview</span>
+                    <span v-else-if="app.status === 'Offer'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Offer Made</span>
+                    <span v-else-if="app.status === 'Placed'" class="badge bg-success text-white px-2.5 py-1">Placed</span>
                     <span v-else-if="app.status === 'Rejected'" class="badge bg-danger bg-opacity-25 text-danger px-2.5 py-1">Rejected</span>
                     <span v-else class="badge bg-indigo-500/20 text-indigo-300 px-2.5 py-1">Applied</span>
                   </td>

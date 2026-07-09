@@ -561,9 +561,12 @@
                   <td>{{ appln.job_title }}</td>
                   <td><span class="small">{{ appln.application_date || '-' }}</span></td>
                   <td>
-                    <span v-if="appln.status === 'Approved'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Approved</span>
+                    <span v-if="appln.status === 'Shortlisted'" class="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1">Shortlisted</span>
+                    <span v-else-if="appln.status === 'Interview'" class="badge bg-info bg-opacity-25 text-info px-2.5 py-1">Interview</span>
+                    <span v-else-if="appln.status === 'Offer'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Offer Made</span>
+                    <span v-else-if="appln.status === 'Placed'" class="badge bg-success text-white px-2.5 py-1">Placed</span>
                     <span v-else-if="appln.status === 'Rejected'" class="badge bg-danger bg-opacity-25 text-danger px-2.5 py-1">Rejected</span>
-                    <span v-else class="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1">Applied</span>
+                    <span v-else class="badge bg-indigo-500/20 text-indigo-300 px-2.5 py-1">Applied</span>
                   </td>
                   <td>
                     <button @click="removeApplication(appln.application_id)" class="btn btn-sm btn-outline-danger" title="Remove Application">

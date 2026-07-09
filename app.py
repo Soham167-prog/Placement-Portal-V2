@@ -555,8 +555,8 @@ def company_stats():
         return jsonify({"message": "Unauthorized"}), 403
     
     company = Company.query.filter_by(user_id=current_user.id).first()
-    if not company:
-        return jsonify({"message": "Company profile not found"}), 404
+    if not company or company.approval_status != "Approved" or company.is_blacklisted:
+        return jsonify({"message": "Access denied. Company profile not approved or blacklisted."}), 403
         
     drives_count = PlacementDrive.query.filter_by(company_id=company.company_id).count()
     
@@ -583,8 +583,8 @@ def company_drives():
         return jsonify({"message": "Unauthorized"}), 403
         
     company = Company.query.filter_by(user_id=current_user.id).first()
-    if not company:
-        return jsonify({"message": "Company profile not found"}), 404
+    if not company or company.approval_status != "Approved" or company.is_blacklisted:
+        return jsonify({"message": "Access denied. Company profile not approved or blacklisted."}), 403
 
     if request.method == "POST":
         data = request.get_json()
@@ -640,8 +640,8 @@ def company_toggle_drive_status(drive_id):
         return jsonify({"message": "Unauthorized"}), 403
         
     company = Company.query.filter_by(user_id=current_user.id).first()
-    if not company:
-        return jsonify({"message": "Company profile not found"}), 404
+    if not company or company.approval_status != "Approved" or company.is_blacklisted:
+        return jsonify({"message": "Access denied. Company profile not approved or blacklisted."}), 403
         
     drive = PlacementDrive.query.filter_by(drive_id=drive_id, company_id=company.company_id).first_or_404()
     
@@ -664,8 +664,8 @@ def company_applications():
         return jsonify({"message": "Unauthorized"}), 403
         
     company = Company.query.filter_by(user_id=current_user.id).first()
-    if not company:
-        return jsonify({"message": "Company profile not found"}), 404
+    if not company or company.approval_status != "Approved" or company.is_blacklisted:
+        return jsonify({"message": "Access denied. Company profile not approved or blacklisted."}), 403
         
     drive_ids = [d.drive_id for d in PlacementDrive.query.filter_by(company_id=company.company_id).all()]
     if not drive_ids:
@@ -700,8 +700,8 @@ def company_update_application_status(app_id):
         return jsonify({"message": "Unauthorized"}), 403
         
     company = Company.query.filter_by(user_id=current_user.id).first()
-    if not company:
-        return jsonify({"message": "Company profile not found"}), 404
+    if not company or company.approval_status != "Approved" or company.is_blacklisted:
+        return jsonify({"message": "Access denied. Company profile not approved or blacklisted."}), 403
         
     appln = Application.query.get_or_404(app_id)
     if appln.placement_drive.company_id != company.company_id:
@@ -709,14 +709,14 @@ def company_update_application_status(app_id):
         
     data = request.get_json()
     new_status = data.get("status")
-    if new_status not in ["Shortlisted", "Selected", "Rejected"]:
-        return jsonify({"message": "Invalid application status. Use Shortlisted, Selected, or Rejected."}), 400
+    if new_status not in ["Applied", "Shortlisted", "Interview", "Offer", "Rejected", "Placed"]:
+        return jsonify({"message": "Invalid application status. Use Applied, Shortlisted, Interview, Offer, Rejected, or Placed."}), 400
         
     appln.status = new_status
     if "feedback" in data:
         appln.feedback = data.get("feedback")
         
-    if new_status == "Selected":
+    if new_status in ["Offer", "Placed"]:
         import datetime
         existing_placement = Placement.query.filter_by(
             student_id=appln.student_id,
@@ -749,8 +749,8 @@ def company_schedule_interview(app_id):
         return jsonify({"message": "Unauthorized"}), 403
         
     company = Company.query.filter_by(user_id=current_user.id).first()
-    if not company:
-        return jsonify({"message": "Company profile not found"}), 404
+    if not company or company.approval_status != "Approved" or company.is_blacklisted:
+        return jsonify({"message": "Access denied. Company profile not approved or blacklisted."}), 403
         
     appln = Application.query.get_or_404(app_id)
     if appln.placement_drive.company_id != company.company_id:
@@ -771,6 +771,7 @@ def company_schedule_interview(app_id):
             return jsonify({"message": "Invalid date format. Use YYYY-MM-DD HH:MM"}), 400
             
     appln.interview_date = interview_dt
+    appln.status = "Interview"
     db.session.commit()
     return jsonify({
         "message": "Interview scheduled successfully.",

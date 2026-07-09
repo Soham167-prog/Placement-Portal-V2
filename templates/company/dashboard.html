@@ -302,7 +302,9 @@
                   </td>
                   <td>
                     <span v-if="app.status === 'Shortlisted'" class="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1">Shortlisted</span>
-                    <span v-else-if="app.status === 'Selected'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Selected</span>
+                    <span v-else-if="app.status === 'Interview'" class="badge bg-info bg-opacity-25 text-info px-2.5 py-1">Interview</span>
+                    <span v-else-if="app.status === 'Offer'" class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Offer Made</span>
+                    <span v-else-if="app.status === 'Placed'" class="badge bg-success text-white px-2.5 py-1">Placed</span>
                     <span v-else-if="app.status === 'Rejected'" class="badge bg-danger bg-opacity-25 text-danger px-2.5 py-1">Rejected</span>
                     <span v-else class="badge bg-indigo-500/20 text-indigo-300 px-2.5 py-1">Applied</span>
                   </td>
@@ -314,15 +316,22 @@
                         <button @click="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
                       </div>
                       
-                      <!-- Shortlisted Status Controls -->
-                      <div v-if="app.status === 'Shortlisted'" class="d-flex flex-column gap-1">
+                      <!-- Shortlisted / Interview Status Controls -->
+                      <div v-if="app.status === 'Shortlisted' || app.status === 'Interview'" class="d-flex flex-column gap-1">
                         <button @click="openInterviewModal(app)" class="btn btn-sm btn-outline-warning">
                           <i class="bi bi-calendar-event"></i> Schedule Interview
                         </button>
                         <div class="d-flex gap-1 mt-1">
-                          <button @click="openActionModal(app, 'Selected')" class="btn btn-sm btn-success">Select Candidate</button>
+                          <button @click="openActionModal(app, 'Offer')" class="btn btn-sm btn-success">Make Offer</button>
+                          <button @click="openActionModal(app, 'Placed')" class="btn btn-sm btn-outline-success text-white bg-success">Confirm Placed</button>
                           <button @click="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
                         </div>
+                      </div>
+
+                      <!-- Offer Status Controls -->
+                      <div v-if="app.status === 'Offer'" class="d-flex gap-1">
+                        <button @click="openActionModal(app, 'Placed')" class="btn btn-sm btn-success">Confirm Placed</button>
+                        <button @click="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
                       </div>
 
                       <!-- Display Feedback -->

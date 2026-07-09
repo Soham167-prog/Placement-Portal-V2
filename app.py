@@ -4,8 +4,35 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_security import SQLAlchemyUserDatastore, auth_required, current_user, login_user, logout_user
 from flask_cors import CORS
 from config import Config
-from extensions import db, security
+from extensions import db, security, redis_client
 from models import User, Role, Company, Student, PlacementDrive, Application, Placement
+import json
+
+# ================= CACHING UTILITIES =================
+
+def get_cached_response(key):
+    try:
+        data = redis_client.get(key)
+        if data:
+            return json.loads(data)
+    except Exception as e:
+        print(f"[Redis Cache] Read error for key {key}:", e)
+    return None
+
+def set_cached_response(key, data, timeout=300):
+    try:
+        redis_client.setex(key, timeout, json.dumps(data))
+    except Exception as e:
+        print(f"[Redis Cache] Write error for key {key}:", e)
+
+def invalidate_cache_by_pattern(pattern):
+    try:
+        keys = redis_client.keys(pattern)
+        if keys:
+            redis_client.delete(*keys)
+            print(f"[Redis Cache] Invalidated keys matching pattern: {pattern}")
+    except Exception as e:
+        print(f"[Redis Cache] Invalidation error for pattern {pattern}:", e)
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -204,6 +231,9 @@ def register_student():
     db.session.add(student)
     db.session.commit()
 
+    invalidate_cache_by_pattern("admin_students_search:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+
     return jsonify({"message": "Student Registered Successfully"}), 201
 
 @app.route("/register/company", methods=["POST"])
@@ -245,6 +275,9 @@ def register_company():
     db.session.add(company)
     db.session.commit()
 
+    invalidate_cache_by_pattern("admin_companies_search:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+
     return jsonify({"message": "Company Registered Successfully"}), 201
 
 @app.route("/logout", methods=["POST", "GET"])
@@ -282,6 +315,11 @@ def admin_stats():
     if current_user.role != "Admin":
         return jsonify({"message": "Access denied"}), 403
         
+    cache_key = "admin_stats_cache"
+    cached = get_cached_response(cache_key)
+    if cached is not None:
+        return jsonify(cached)
+        
     active_students_count = Student.query.filter_by(is_blacklisted=False).count()
     blacklisted_students_count = Student.query.filter_by(is_blacklisted=True).count()
     
@@ -296,7 +334,7 @@ def admin_stats():
     total_applications_count = Application.query.count()
     rejected_applications_count = Application.query.filter_by(status="Rejected").count()
 
-    return jsonify({
+    res = {
         "active_students_count": active_students_count,
         "blacklisted_students_count": blacklisted_students_count,
         "active_companies_count": active_companies_count,
@@ -307,17 +345,23 @@ def admin_stats():
         "rejected_drives_count": rejected_drives_count,
         "total_applications_count": total_applications_count,
         "rejected_applications_count": rejected_applications_count
-    })
+    }
+    set_cached_response(cache_key, res, timeout=300)
+    return jsonify(res)
 
 @app.route("/api/admin/students", methods=["GET"])
 @auth_required()
 def admin_list_students():
     if current_user.role != "Admin":
         return jsonify({"message": "Access denied"}), 403
+        
+    search_val = request.args.get("query", "").strip()
+    cache_key = f"admin_students_search:{search_val}"
+    cached = get_cached_response(cache_key)
+    if cached is not None:
+        return jsonify(cached)
     
     query = Student.query
-    search_val = request.args.get("query")
-    
     if search_val:
         conditions = [
             Student.full_name.ilike(f"%{search_val}%"),
@@ -346,6 +390,7 @@ def admin_list_students():
             "is_blacklisted": s.is_blacklisted,
             "is_active": s.user.is_active
         })
+    set_cached_response(cache_key, res, timeout=300)
     return jsonify(res)
 
 @app.route("/api/admin/students/<int:student_id>/toggle-blacklist", methods=["POST"])
@@ -359,6 +404,11 @@ def admin_toggle_student_blacklist(student_id):
     student.is_blacklisted = True
     student.user.is_active = False
     db.session.commit()
+    
+    invalidate_cache_by_pattern("admin_students_search:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({
         "message": "Student blacklisted permanently.",
         "is_blacklisted": True,
@@ -375,6 +425,11 @@ def admin_remove_student(student_id):
     db.session.delete(student)
     db.session.delete(user)
     db.session.commit()
+    
+    invalidate_cache_by_pattern("admin_students_search:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({"message": "Student profile removed successfully."})
 
 @app.route("/api/admin/companies", methods=["GET"])
@@ -383,9 +438,13 @@ def admin_list_companies():
     if current_user.role != "Admin":
         return jsonify({"message": "Access denied"}), 403
         
+    search_val = request.args.get("query", "").strip()
+    cache_key = f"admin_companies_search:{search_val}"
+    cached = get_cached_response(cache_key)
+    if cached is not None:
+        return jsonify(cached)
+        
     query = Company.query
-    search_val = request.args.get("query")
-    
     if search_val:
         conditions = [
             Company.company_name.ilike(f"%{search_val}%"),
@@ -409,6 +468,7 @@ def admin_list_companies():
             "is_blacklisted": c.is_blacklisted,
             "is_active": c.user.is_active
         })
+    set_cached_response(cache_key, res, timeout=300)
     return jsonify(res)
 
 @app.route("/api/admin/companies/<int:company_id>/approve", methods=["POST"])
@@ -419,6 +479,11 @@ def admin_approve_company(company_id):
     company = Company.query.get_or_404(company_id)
     company.approval_status = "Approved"
     db.session.commit()
+    
+    invalidate_cache_by_pattern("admin_companies_search:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({"message": "Company approved.", "approval_status": "Approved"})
 
 @app.route("/api/admin/companies/<int:company_id>/reject", methods=["POST"])
@@ -429,6 +494,11 @@ def admin_reject_company(company_id):
     company = Company.query.get_or_404(company_id)
     company.approval_status = "Rejected"
     db.session.commit()
+    
+    invalidate_cache_by_pattern("admin_companies_search:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({"message": "Company rejected.", "approval_status": "Rejected"})
 
 @app.route("/api/admin/companies/<int:company_id>/toggle-blacklist", methods=["POST"])
@@ -442,6 +512,11 @@ def admin_toggle_company_blacklist(company_id):
     company.is_blacklisted = True
     company.user.is_active = False
     db.session.commit()
+    
+    invalidate_cache_by_pattern("admin_companies_search:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({
         "message": "Company blacklisted permanently.",
         "is_blacklisted": True,
@@ -458,6 +533,11 @@ def admin_remove_company(company_id):
     db.session.delete(company)
     db.session.delete(user)
     db.session.commit()
+    
+    invalidate_cache_by_pattern("admin_companies_search:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({"message": "Company removed successfully."})
 
 @app.route("/api/admin/drives", methods=["GET"])
@@ -492,6 +572,11 @@ def admin_approve_drive(drive_id):
     drive = PlacementDrive.query.get_or_404(drive_id)
     drive.status = "Approved"
     db.session.commit()
+    
+    invalidate_cache_by_pattern("student_drives:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern(f"company_stats_cache:{drive.company_id}")
+    
     return jsonify({"message": "Placement drive approved.", "status": "Approved"})
 
 @app.route("/api/admin/drives/<int:drive_id>/reject", methods=["POST"])
@@ -502,6 +587,11 @@ def admin_reject_drive(drive_id):
     drive = PlacementDrive.query.get_or_404(drive_id)
     drive.status = "Rejected"
     db.session.commit()
+    
+    invalidate_cache_by_pattern("student_drives:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern(f"company_stats_cache:{drive.company_id}")
+    
     return jsonify({"message": "Placement drive rejected.", "status": "Rejected"})
 
 @app.route("/api/admin/drives/<int:drive_id>", methods=["DELETE"])
@@ -510,8 +600,14 @@ def admin_remove_drive(drive_id):
     if current_user.role != "Admin":
         return jsonify({"message": "Access denied"}), 403
     drive = PlacementDrive.query.get_or_404(drive_id)
+    company_id = drive.company_id
     db.session.delete(drive)
     db.session.commit()
+    
+    invalidate_cache_by_pattern("student_drives:*")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern(f"company_stats_cache:{company_id}")
+    
     return jsonify({"message": "Placement drive removed successfully."})
 
 @app.route("/api/admin/applications", methods=["GET"])
@@ -542,8 +638,14 @@ def admin_remove_application(app_id):
     if current_user.role != "Admin":
         return jsonify({"message": "Access denied"}), 403
     appln = Application.query.get_or_404(app_id)
+    company_id = appln.placement_drive.company_id
     db.session.delete(appln)
     db.session.commit()
+    
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern(f"company_stats_cache:{company_id}")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({"message": "Application removed successfully."})
 
 # ================= COMPANY PORTAL APIS =================
@@ -558,6 +660,11 @@ def company_stats():
     if not company or company.approval_status != "Approved" or company.is_blacklisted:
         return jsonify({"message": "Access denied. Company profile not approved or blacklisted."}), 403
         
+    cache_key = f"company_stats_cache:{company.company_id}"
+    cached = get_cached_response(cache_key)
+    if cached is not None:
+        return jsonify(cached)
+        
     drives_count = PlacementDrive.query.filter_by(company_id=company.company_id).count()
     
     # Received applications count across all company drives
@@ -570,11 +677,13 @@ def company_stats():
         Application.status == "Shortlisted"
     ).count() if drive_ids else 0
     
-    return jsonify({
+    res = {
         "drives_count": drives_count,
         "applications_count": applications_count,
         "shortlisted_count": shortlisted_count
-    })
+    }
+    set_cached_response(cache_key, res, timeout=300)
+    return jsonify(res)
 
 @app.route("/api/company/drives", methods=["GET", "POST"])
 @auth_required()
@@ -613,6 +722,11 @@ def company_drives():
         )
         db.session.add(drive)
         db.session.commit()
+        
+        invalidate_cache_by_pattern("student_drives:*")
+        invalidate_cache_by_pattern(f"company_stats_cache:{company.company_id}")
+        invalidate_cache_by_pattern("admin_stats_cache")
+        
         return jsonify({"message": "Placement drive posted successfully. Awaiting Admin approval.", "drive_id": drive.drive_id}), 201
 
     # GET method
@@ -655,6 +769,11 @@ def company_toggle_drive_status(drive_id):
         drive.status = "Closed"
         
     db.session.commit()
+    
+    invalidate_cache_by_pattern("student_drives:*")
+    invalidate_cache_by_pattern(f"company_stats_cache:{company.company_id}")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    
     return jsonify({"message": f"Drive status updated to {drive.status}.", "status": drive.status})
 
 @app.route("/api/company/applications", methods=["GET"])
@@ -736,6 +855,11 @@ def company_update_application_status(app_id):
             db.session.add(new_placement)
         
     db.session.commit()
+    
+    invalidate_cache_by_pattern(f"company_stats_cache:{company.company_id}")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({
         "message": f"Application status updated to {new_status}.",
         "status": new_status,
@@ -773,6 +897,11 @@ def company_schedule_interview(app_id):
     appln.interview_date = interview_dt
     appln.status = "Interview"
     db.session.commit()
+    
+    invalidate_cache_by_pattern(f"company_stats_cache:{company.company_id}")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    invalidate_cache_by_pattern("student_drives:*")
+    
     return jsonify({
         "message": "Interview scheduled successfully.",
         "interview_date": appln.interview_date.strftime("%Y-%m-%d %H:%M")
@@ -832,6 +961,11 @@ def student_profile():
                 student.resume = data.get("resume")
                 
         db.session.commit()
+        
+        invalidate_cache_by_pattern("admin_students_search:*")
+        invalidate_cache_by_pattern("admin_stats_cache")
+        invalidate_cache_by_pattern(f"student_drives:{student.student_id}:*")
+        
         return jsonify({"message": "Profile updated successfully.", "resume_url": student.resume})
         
     return jsonify({
@@ -858,6 +992,10 @@ def student_list_drives():
         return jsonify({"message": "Student profile not found"}), 404
         
     query_str = request.args.get("query", "").strip()
+    cache_key = f"student_drives:{student.student_id}:{query_str}"
+    cached = get_cached_response(cache_key)
+    if cached is not None:
+        return jsonify(cached)
     
     # Base query: Approved drives
     drives_query = PlacementDrive.query.filter(PlacementDrive.status.in_(["Approved", "Active"]))
@@ -891,6 +1029,7 @@ def student_list_drives():
             "benefits": d.benefits,
             "has_applied": d.drive_id in applied_drive_ids
         })
+    set_cached_response(cache_key, res, timeout=300)
     return jsonify(res)
 
 @app.route("/api/student/drives/<int:drive_id>/apply", methods=["POST"])
@@ -921,6 +1060,11 @@ def student_apply_drive(drive_id):
     )
     db.session.add(appln)
     db.session.commit()
+    
+    invalidate_cache_by_pattern(f"student_drives:{student.student_id}:*")
+    invalidate_cache_by_pattern(f"company_stats_cache:{drive.company_id}")
+    invalidate_cache_by_pattern("admin_stats_cache")
+    
     return jsonify({"message": "Applied successfully!", "application_id": appln.application_id})
 
 @app.route("/api/student/applications", methods=["GET"])

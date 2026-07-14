@@ -863,6 +863,7 @@ def admin_list_drives():
             "job_title": d.job_title,
             "job_description": d.job_description,
             "eligibility_criteria": d.eligibility_criteria,
+            "min_cgpa": d.min_cgpa,
             "application_deadline": d.application_deadline.strftime("%Y-%m-%d %H:%M") if d.application_deadline else None,
             "status": d.status,
             "salary": d.salary,
@@ -1027,11 +1028,18 @@ def company_drives():
             if deadline < datetime.utcnow():
                 return jsonify({"message": "Application deadline must be a future date/time."}), 400
 
+        min_cgpa_val = data.get("min_cgpa")
+        try:
+            min_cgpa = float(min_cgpa_val) if min_cgpa_val is not None and min_cgpa_val != "" else 0.0
+        except (ValueError, TypeError):
+            min_cgpa = 0.0
+
         drive = PlacementDrive(
             company_id=company.company_id,
             job_title=job_title,
             job_description=data.get("job_description"),
             eligibility_criteria=data.get("eligibility_criteria"),
+            min_cgpa=min_cgpa,
             application_deadline=deadline,
             salary=data.get("salary"),
             location=data.get("location"),
@@ -1056,6 +1064,7 @@ def company_drives():
             "job_title": d.job_title,
             "job_description": d.job_description,
             "eligibility_criteria": d.eligibility_criteria,
+            "min_cgpa": d.min_cgpa,
             "application_deadline": d.application_deadline.strftime("%Y-%m-%d %H:%M") if d.application_deadline else None,
             "status": d.status,
             "salary": d.salary,
@@ -1440,6 +1449,7 @@ def student_list_drives():
             "job_title": d.job_title,
             "job_description": d.job_description,
             "eligibility_criteria": d.eligibility_criteria,
+            "min_cgpa": d.min_cgpa,
             "application_deadline": d.application_deadline.strftime("%Y-%m-%d %H:%M") if d.application_deadline else None,
             "salary": d.salary,
             "location": d.location,
@@ -1467,6 +1477,10 @@ def student_apply_drive(drive_id):
     if drive.status not in ["Approved", "Active"]:
         return jsonify({"message": "This placement drive is closed or inactive."}), 400
         
+    if drive.min_cgpa and student.cgpa is not None:
+        if student.cgpa < drive.min_cgpa:
+            return jsonify({"message": f"You do not meet the minimum CGPA requirement ({drive.min_cgpa}) for this drive."}), 400
+
     existing = Application.query.filter_by(student_id=student.student_id, drive_id=drive_id).first()
     if existing:
         return jsonify({"message": "You have already applied to this drive."}), 400

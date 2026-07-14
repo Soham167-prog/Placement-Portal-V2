@@ -281,9 +281,13 @@
                   <span class="small text-slate-400 block mb-1">Required Skills:</span>
                   <p class="small text-white fw-medium mb-0">{{ drive.skills_required || 'None specified.' }}</p>
                 </div>
-                <div v-if="drive.eligibility_criteria" class="mb-3">
+                <div class="mb-3">
                   <span class="small text-slate-400 block mb-1">Eligibility Criteria:</span>
-                  <p class="small text-white fw-medium mb-0">{{ drive.eligibility_criteria }}</p>
+                  <p class="small text-white fw-medium mb-0">{{ drive.eligibility_criteria || 'None specified.' }}</p>
+                </div>
+                <div v-if="drive.min_cgpa" class="mb-3">
+                  <span class="small text-slate-400 block mb-1">Minimum CGPA Required:</span>
+                  <p class="small text-white fw-semibold mb-0"><i class="bi bi-mortarboard text-warning me-1"></i>{{ drive.min_cgpa }}</p>
                 </div>
               </div>
 
@@ -293,6 +297,9 @@
                 </button>
                 <button v-else-if="profile.is_blacklisted" class="btn btn-outline-secondary w-100 py-2.5" disabled>
                   Applications Disabled
+                </button>
+                <button v-else-if="!checkCgpaEligibility(drive)" class="btn btn-outline-danger w-100 py-2.5 fw-bold" disabled>
+                  Not Eligible (CGPA &lt; Required)
                 </button>
                 <button v-else @click="applyForJob(drive.drive_id)" class="btn btn-primary w-100 py-2.5 fw-bold text-white">
                   Apply Now
@@ -581,6 +588,11 @@
           }
         };
 
+        const checkCgpaEligibility = (drive) => {
+          if (!drive || drive.min_cgpa === undefined || drive.min_cgpa === null || !profile.value || profile.value.cgpa === undefined || profile.value.cgpa === null) return true;
+          return profile.value.cgpa >= drive.min_cgpa;
+        };
+
         onMounted(() => {
           fetchProfile();
           fetchDrives();
@@ -607,7 +619,8 @@
           applyForJob,
           exportState,
           triggerCsvExport,
-          handleLogout
+          handleLogout,
+          checkCgpaEligibility
         };
       }
     }).mount('#app');

@@ -234,6 +234,8 @@ paths:
                   type: string
                 eligibility_criteria:
                   type: string
+                min_cgpa:
+                  type: number
                 benefits:
                   type: string
       responses:

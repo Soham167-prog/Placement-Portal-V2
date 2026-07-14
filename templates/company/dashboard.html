@@ -202,6 +202,11 @@
                 <input type="text" id="job-eligibility" class="form-control" v-model="jobForm.eligibility_criteria">
               </div>
 
+              <div class="mb-3">
+                <label for="job-min-cgpa" class="form-label text-slate-300">Minimum CGPA Requirement</label>
+                <input type="number" step="0.1" min="0" max="10" id="job-min-cgpa" class="form-control" v-model.number="jobForm.min_cgpa">
+              </div>
+
               <div class="mb-4">
                 <label for="job-benefits" class="form-label text-slate-300">Benefits & Perks</label>
                 <textarea id="job-benefits" rows="2" class="form-control" v-model="jobForm.benefits"></textarea>
@@ -673,6 +678,7 @@
           job_title: '',
           job_description: '',
           eligibility_criteria: '',
+          min_cgpa: null,
           salary: null,
           application_deadline: '',
           location: '',
@@ -736,7 +742,7 @@
           try {
             const res = await axios.post('/api/company/drives', jobForm.value);
             showAlert(res.data.message);
-            jobForm.value = { job_title: '', job_description: '', eligibility_criteria: '', salary: null, application_deadline: '', location: '', skills_required: '', benefits: '' };
+            jobForm.value = { job_title: '', job_description: '', eligibility_criteria: '', min_cgpa: null, salary: null, application_deadline: '', location: '', skills_required: '', benefits: '' };
             currentTab.value = 'job-list';
             fetchDrives();
             fetchStats();

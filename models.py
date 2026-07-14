@@ -170,6 +170,7 @@ class PlacementDrive(db.Model):
     job_title = db.Column(db.String(150), nullable=False)
     job_description = db.Column(db.Text)
     eligibility_criteria = db.Column(db.Text)
+    min_cgpa = db.Column(db.Float, default=0.0)
     application_deadline = db.Column(db.DateTime)
     status = db.Column(
         db.String(20),

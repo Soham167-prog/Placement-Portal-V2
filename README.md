@@ -1,6 +1,6 @@
 # Campus Placement Portal V2 - Setup and Demo Guide
 
-This system coordinates student placement drives, recruiter job postings, admin approvals, automatic PDF offer letters, and asynchronous status tracking with Redis/Celery.
+An advanced Campus Placement Portal built with Flask, Vue.js 3, Redis caching, Celery background tasks, and ReportLab PDF offer letter generation.
 
 ---
 
@@ -9,25 +9,28 @@ This system coordinates student placement drives, recruiter job postings, admin 
 ### Pre-requisites
 Ensure you have **Python 3.10+**, **Redis**, and **SQLite** installed on your system.
 
-### Installation
-1. Install all dependencies from `requirements.txt`:
+### Installation & Initialization
+
+1. **Download Dependencies**:
+   Install all necessary python libraries and dependencies from `requirements.txt`:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. Initialize the database and pre-create the Admin user:
+2. **Initialize Database & Seed Administrator**:
+   The SQLite database tables are automatically initialized on application startup. You can create the database file and tables, and seed the default Admin credentials by running `create_admin.py`:
    ```bash
    python create_admin.py
    ```
-   *Note: This generates `placement_portal.db` and configures the default admin login credentials.*
+   *Note: This generates `placement_portal.db` containing all schemas defined in `models.py` and creates the default admin login credentials.*
    *   **Admin Email**: `admin@placement.com`
    *   **Admin Password**: `admin123`
 
 ---
 
-## 2. Running the Application
+## 2. Running the Complete System
 
-To run the complete system, you need to start the Redis server, Flask backend, and Celery background workers.
+To run the placement portal, you must start the Redis server, Flask web application, and Celery background workers.
 
 ### Step 1: Start Redis
 Make sure your Redis server is running locally on port `6379`:
@@ -36,14 +39,14 @@ redis-server
 ```
 
 ### Step 2: Run the Flask Web Application
-Start the core Flask backend API:
+Start the core Flask web server:
 ```bash
 python app.py
 ```
 The application will run locally at [http://127.0.0.1:5000/](http://127.0.0.1:5000/).
 
 ### Step 3: Run Celery Worker & Beat
-In separate terminal windows, start the background tasks worker and the cron task scheduler:
+In separate terminal windows, start the background task worker and the beat scheduler:
 
 *   **Start the Celery Worker**:
     ```bash
@@ -58,7 +61,7 @@ In separate terminal windows, start the background tasks worker and the cron tas
 
 ## 3. End-to-End Demo Workflow (Testing Guide)
 
-Use this step-by-step scenario to verify and demonstrate all functionalities:
+Use this scenario to demonstrate all features:
 
 ### Step A: Setup Users
 1. Register a new **Company Recruiter** account using:
@@ -82,6 +85,7 @@ Use this step-by-step scenario to verify and demonstrate all functionalities:
 1. Log in as the **Student** (`student@gmail.com`).
 2. Update your profile by filling in your CGPA, Branch, and uploading a PDF resume.
 3. Go to the **Job Postings** tab, search for the Google drive, and click **Apply**.
+   *Note: If the student does not meet the CGPA requirement specified in the drive's eligibility criteria, the Apply button will be disabled, and the backend will block the application.*
 
 ### Step E: Scheduling the Interview (Recruiter Side)
 1. Log in as the **Recruiter**. In the **Applications** tab, click **Schedule Interview** on the student's card.

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect
+from flask import Flask, render_template, request, jsonify, redirect, send_file
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_security import SQLAlchemyUserDatastore, auth_required, current_user, login_user, logout_user
@@ -7,8 +7,8 @@ from config import Config
 from extensions import db, security, redis_client
 from models import User, Role, Company, Student, PlacementDrive, Application, Placement
 import json
+import os
 
-# ================= CACHING UTILITIES =================
 
 def get_cached_response(key):
     try:
@@ -34,10 +34,211 @@ def invalidate_cache_by_pattern(pattern):
     except Exception as e:
         print(f"[Redis Cache] Invalidation error for pattern {pattern}:", e)
 
+def check_and_close_expired_drives():
+    from models import PlacementDrive
+    from datetime import datetime
+    now = datetime.utcnow()
+    expired_drives = PlacementDrive.query.filter(
+        PlacementDrive.status.in_(["Approved", "Active"]),
+        PlacementDrive.application_deadline < now
+    ).all()
+    if expired_drives:
+        for d in expired_drives:
+            d.status = "Closed"
+        db.session.commit()
+        invalidate_cache_by_pattern("student_drives:*")
+        invalidate_cache_by_pattern("admin_stats_cache")
+        for d in expired_drives:
+            invalidate_cache_by_pattern(f"company_stats_cache:{d.company_id}")
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+
+VIVA_CREDENTIALS = {}
+try:
+    import viva_secrets
+    VIVA_CREDENTIALS = getattr(viva_secrets, "CREDENTIALS", {})
+except ImportError:
+    pass
+
+def send_email_notification(to_email, subject, body_text, sender_email=None, sender_name=None, attachment_path=None, attachment_filename=None):
+    mail_server = app.config.get("MAIL_SERVER", "smtp.gmail.com")
+    mail_port = app.config.get("MAIL_PORT", 587)
+    
+    mail_username = None
+    mail_password = None
+    
+    if sender_email:
+        from models import User
+        sender_user = User.query.filter_by(email=sender_email).first()
+        if sender_user and sender_user.smtp_app_password:
+            mail_username = sender_user.email
+            mail_password = sender_user.smtp_app_password
+            
+    if not mail_username or not mail_password:
+        mail_username = app.config.get("MAIL_USERNAME", "your-email@gmail.com")
+        mail_password = app.config.get("MAIL_PASSWORD", "YOUR_GMAIL_APP_PASSWORD_HERE")
+        
+    mail_sender = sender_email if sender_email else mail_username
+        
+    try:
+        if attachment_path:
+            msg = MIMEMultipart()
+            msg['Subject'] = subject
+            msg['To'] = to_email
+            if sender_name:
+                msg['From'] = f"{sender_name} <{mail_sender}>"
+            else:
+                msg['From'] = mail_sender
+            
+            msg.attach(MIMEText(body_text, 'plain'))
+            
+            with open(attachment_path, "rb") as f:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(f.read())
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                f"attachment; filename={attachment_filename or 'Offer_Letter.pdf'}",
+            )
+            msg.attach(part)
+        else:
+            msg = MIMEText(body_text)
+            msg['Subject'] = subject
+            if sender_name:
+                msg['From'] = f"{sender_name} <{mail_sender}>"
+            else:
+                msg['From'] = mail_sender
+            msg['To'] = to_email
+        
+        server = smtplib.SMTP(mail_server, mail_port)
+        server.starttls()
+        server.login(mail_username, mail_password)
+        server.sendmail(mail_sender, [to_email], msg.as_string())
+        server.quit()
+        print(f"[SMTP Email] Email successfully sent to {to_email} (From: {sender_name or 'System'} <{mail_sender}>)")
+        return True
+    except Exception as e:
+        print(f"[SMTP Email] Failed to send email to {to_email}: {e}")
+        return False
+
+def generate_offer_letter_pdf(student_name, company_name, position, salary, joining_date_str, benefits, dest_path):
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    import datetime
+    
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    
+    doc = SimpleDocTemplate(dest_path, pagesize=letter,
+                            rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=24,
+        leading=28,
+        textColor=colors.HexColor('#312e81'),
+        spaceAfter=15,
+        alignment=1
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'DocSubtitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=16,
+        textColor=colors.HexColor('#4b5563'),
+        spaceAfter=30,
+        alignment=1
+    )
+    
+    body_style = ParagraphStyle(
+        'DocBody',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=10.5,
+        leading=16,
+        textColor=colors.HexColor('#1f2937'),
+        spaceAfter=12
+    )
+    
+    story.append(Paragraph("OFFER OF EMPLOYMENT", title_style))
+    story.append(Paragraph(f"Issued by {company_name}", subtitle_style))
+    story.append(Spacer(1, 15))
+    
+    date_today = datetime.date.today().strftime("%B %d, %Y")
+    story.append(Paragraph(f"<b>Date:</b> {date_today}", body_style))
+    story.append(Paragraph(f"<b>To:</b> {student_name}", body_style))
+    story.append(Spacer(1, 10))
+    
+    story.append(Paragraph(
+        f"Dear {student_name},<br/><br/>"
+        f"On behalf of <b>{company_name}</b>, we are thrilled to offer you the position of "
+        f"<b>{position}</b>. We were exceptionally impressed by your skills, qualifications, "
+        f"and performance during our selection process.",
+        body_style
+    ))
+    
+    story.append(Paragraph(
+        "Please find the summary of your employment terms below:",
+        body_style
+    ))
+    story.append(Spacer(1, 10))
+    
+    data = [
+        [Paragraph("<b>Job Title</b>", body_style), Paragraph(position, body_style)],
+        [Paragraph("<b>Company</b>", body_style), Paragraph(company_name, body_style)],
+        [Paragraph("<b>Salary Package</b>", body_style), Paragraph(f"{salary} LPA", body_style)],
+        [Paragraph("<b>Joining Date</b>", body_style), Paragraph(joining_date_str, body_style)],
+        [Paragraph("<b>Perks & Benefits</b>", body_style), Paragraph(benefits or "Standard corporate benefits package", body_style)]
+    ]
+    
+    t = Table(data, colWidths=[130, 370])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f9fafb')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('LEFTPADDING', (0,0), (-1,-1), 12),
+        ('RIGHTPADDING', (0,0), (-1,-1), 12),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 20))
+    
+    story.append(Paragraph(
+        "By accepting this offer, you agree to comply with the guidelines, codes of conduct, "
+        "and regulations of the company. We look forward to welcoming you to our team and working "
+        "together towards achieving great milestones.",
+        body_style
+    ))
+    story.append(Spacer(1, 30))
+    
+    sig_data = [
+        [Paragraph("_____________________________<br/><b>Authorized Signatory</b><br/>HR Department, " + company_name, body_style),
+         Paragraph("_____________________________<br/><b>Candidate Acceptance</b><br/>" + student_name, body_style)]
+    ]
+    sig_table = Table(sig_data, colWidths=[250, 250])
+    sig_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    story.append(sig_table)
+    
+    doc.build(story)
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Enable CORS for development flexibility
 CORS(app, supports_credentials=True)
 
 db.init_app(app)
@@ -45,12 +246,10 @@ db.init_app(app)
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 security.init_app(app, user_datastore, register_blueprint=False)
 
-# Custom unauthenticated handler for API requests
 @security.unauthn_handler
 def custom_unauth_handler(mechanisms, headers=None):
     return jsonify({"message": "Authentication required."}), 401
 
-# Re-create database if the schema is outdated
 with app.app_context():
     try:
         db.create_all()
@@ -137,12 +336,10 @@ def login():
     if not user:
         return jsonify({"message": "Invalid Email"}), 401
 
-    # Verify if the account role matches the portal role being accessed
     expected_role = data.get("role")
     if expected_role and user.role != expected_role:
         return jsonify({"message": f"This email is not registered as a {expected_role}."}), 403
 
-    # Verify password with plain-text fallback (for create_admin.py credentials)
     password_valid = False
     if user.password_hash.startswith("pbkdf2:") or user.password_hash.startswith("scrypt:"):
         password_valid = check_password_hash(user.password_hash, data["password"])
@@ -155,7 +352,6 @@ def login():
     if not user.is_active:
         return jsonify({"message": "Account is inactive"}), 403
 
-    # Check blacklist and approval statuses
     if user.role == "Student":
         student = Student.query.filter_by(user_id=user.id).first()
         if student and student.is_blacklisted:
@@ -170,7 +366,6 @@ def login():
             if company.approval_status == "Rejected":
                 return jsonify({"message": "Your company registration has been rejected."}), 403
 
-    # Sync roles with many-to-many relationship for Flask-Security decorator compatibility
     if user.role and not user.roles:
         r = Role.query.filter_by(name=user.role).first()
         if not r:
@@ -192,22 +387,63 @@ def login():
 
 @app.route("/register/student", methods=["POST"])
 def register_student():
-    data = request.get_json()
-    existing_user = User.query.filter_by(email=data["email"]).first()
+    is_multipart = request.content_type and "multipart/form-data" in request.content_type
+    if is_multipart:
+        email = request.form.get("email")
+        password = request.form.get("password")
+        full_name = request.form.get("full_name")
+        phone = request.form.get("phone")
+        branch = request.form.get("branch")
+        cgpa_str = request.form.get("cgpa")
+        grad_year_str = request.form.get("graduation_year")
+        skills = request.form.get("skills")
+        experience = request.form.get("experience")
+    else:
+        data = request.get_json() or {}
+        email = data.get("email")
+        password = data.get("password")
+        full_name = data.get("full_name")
+        phone = data.get("phone")
+        branch = data.get("branch")
+        cgpa_str = data.get("cgpa")
+        grad_year_str = data.get("graduation_year")
+        skills = data.get("skills")
+        experience = data.get("experience")
+
+    if not email or not password or not full_name:
+        return jsonify({"message": "Email, password, and full name are required."}), 400
+
+    if not email.lower().endswith("@gmail.com"):
+        return jsonify({"message": "Only @gmail.com email addresses are permitted."}), 400
+
+    existing_user = User.query.filter_by(email=email).first()
     if existing_user:
         student_profile = Student.query.filter_by(user_id=existing_user.id).first()
         if student_profile and student_profile.is_blacklisted:
             return jsonify({"message": "This student account is blacklisted and cannot register again."}), 403
         return jsonify({"message": "Email already registered"}), 400
 
+    cgpa = None
+    if cgpa_str:
+        try:
+            cgpa = float(cgpa_str)
+        except ValueError:
+            pass
+            
+    graduation_year = None
+    if grad_year_str:
+        try:
+            graduation_year = int(grad_year_str)
+        except ValueError:
+            pass
+
     user = User(
-        email=data["email"],
-        password_hash=generate_password_hash(data["password"]),
+        email=email,
+        password_hash=generate_password_hash(password),
         role="Student",
         is_active=True
     )
     
-    # Sync Flask-Security role
     student_role = Role.query.filter_by(name="Student").first()
     if not student_role:
         student_role = Role(name="Student")
@@ -217,16 +453,26 @@ def register_student():
     db.session.add(user)
     db.session.commit()
 
+    resume_path = "default.pdf"
+    if "resume_file" in request.files:
+        file = request.files["resume_file"]
+        if file and file.filename:
+            upload_dir = os.path.join(app.root_path, "static", "uploads", "resumes")
+            os.makedirs(upload_dir, exist_ok=True)
+            filename = f"resume_{user.id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
+            file.save(os.path.join(upload_dir, filename))
+            resume_path = f"/static/uploads/resumes/{filename}"
+
     student = Student(
         user_id=user.id,
-        full_name=data["full_name"],
-        phone=data.get("phone"),
-        branch=data.get("branch"),
-        cgpa=data.get("cgpa"),
-        graduation_year=data.get("graduation_year"),
-        skills=data.get("skills"),
-        resume=data.get("resume", "default.pdf"),
-        experience=data.get("experience")
+        full_name=full_name,
+        phone=phone,
+        branch=branch,
+        cgpa=cgpa,
+        graduation_year=graduation_year,
+        skills=skills,
+        resume=resume_path,
+        experience=experience
     )
     db.session.add(student)
     db.session.commit()
@@ -239,7 +485,11 @@ def register_student():
 @app.route("/register/company", methods=["POST"])
 def register_company():
     data = request.get_json()
-    existing_user = User.query.filter_by(email=data["email"]).first()
+    email = data.get("email", "")
+    if not email or not email.lower().endswith("@gmail.com"):
+        return jsonify({"message": "Only @gmail.com email addresses are permitted."}), 400
+        
+    existing_user = User.query.filter_by(email=email).first()
     if existing_user:
         company_profile = Company.query.filter_by(user_id=existing_user.id).first()
         if company_profile and company_profile.is_blacklisted:
@@ -253,7 +503,6 @@ def register_company():
         is_active=True
     )
     
-    # Sync Flask-Security role
     company_role = Role.query.filter_by(name="Company").first()
     if not company_role:
         company_role = Role(name="Company")
@@ -285,7 +534,6 @@ def logout():
     logout_user()
     return jsonify({"message": "Logout Successful"}), 200
 
-# Dashboard stubs to verify authentication and role access
 @app.route("/admin", methods=["GET"])
 @auth_required()
 def admin_dashboard():
@@ -307,7 +555,6 @@ def company_dashboard():
         return jsonify({"message": "Unauthorized"}), 403
     return jsonify({"message": "Welcome Company"})
 
-# ================= ADMIN MANAGEMENT APIS =================
 
 @app.route("/api/admin/stats", methods=["GET"])
 @auth_required()
@@ -540,21 +787,83 @@ def admin_remove_company(company_id):
     
     return jsonify({"message": "Company removed successfully."})
 
+@app.route("/api/admin/companies/<int:company_id>/profile", methods=["GET"])
+@auth_required()
+def get_company_profile_details(company_id):
+    if current_user.role != "Admin":
+        return jsonify({"message": "Access denied"}), 403
+        
+    company = Company.query.get_or_404(company_id)
+    
+    drives = []
+    for d in company.placement_drives:
+        apps = []
+        for a in d.applications:
+            apps.append({
+                "application_id": a.application_id,
+                "student_id": a.student_id,
+                "student_name": a.student.full_name,
+                "student_email": a.student.user.email,
+                "student_cgpa": a.student.cgpa,
+                "status": a.status,
+                "interview_date": a.interview_date.strftime("%Y-%m-%d %H:%M") if a.interview_date else None,
+                "feedback": a.feedback,
+                "application_date": a.application_date.strftime("%Y-%m-%d %H:%M") if a.application_date else None,
+                "meet_link": a.meet_link,
+                "interview_description": a.interview_description,
+                "interview_confirmed": a.interview_confirmed
+            })
+        drives.append({
+            "drive_id": d.drive_id,
+            "job_title": d.job_title,
+            "salary": d.salary,
+            "location": d.location,
+            "status": d.status,
+            "created_at": d.created_at.strftime("%Y-%m-%d") if d.created_at else None,
+            "applications": apps
+        })
+        
+    placements = []
+    for p in company.placements:
+        placements.append({
+            "placement_id": p.placement_id,
+            "student_name": p.student.full_name,
+            "position": p.position,
+            "salary": p.salary,
+            "joining_date": p.joining_date.strftime("%Y-%m-%d") if p.joining_date else None
+        })
+        
+    return jsonify({
+        "company_id": company.company_id,
+        "company_name": company.company_name,
+        "email": company.user.email,
+        "sector": company.industry,
+        "website": company.website,
+        "location": company.location,
+        "description": company.description,
+        "approval_status": company.approval_status,
+        "is_blacklisted": company.is_blacklisted,
+        "placement_drives": drives,
+        "placements": placements
+    })
+
 @app.route("/api/admin/drives", methods=["GET"])
 @auth_required()
 def admin_list_drives():
     if current_user.role != "Admin":
         return jsonify({"message": "Access denied"}), 403
+    check_and_close_expired_drives()
     drives = PlacementDrive.query.all()
     res = []
     for d in drives:
         res.append({
             "drive_id": d.drive_id,
+            "company_id": d.company_id,
             "company_name": d.company.company_name,
             "job_title": d.job_title,
             "job_description": d.job_description,
             "eligibility_criteria": d.eligibility_criteria,
-            "application_deadline": d.application_deadline.strftime("%Y-%m-%d") if d.application_deadline else None,
+            "application_deadline": d.application_deadline.strftime("%Y-%m-%d %H:%M") if d.application_deadline else None,
             "status": d.status,
             "salary": d.salary,
             "location": d.location,
@@ -620,6 +929,7 @@ def admin_list_applications():
     for a in apps:
         res.append({
             "application_id": a.application_id,
+            "student_id": a.student_id,
             "student_name": a.student.full_name,
             "student_email": a.student.user.email,
             "company_name": a.placement_drive.company.company_name,
@@ -648,7 +958,6 @@ def admin_remove_application(app_id):
     
     return jsonify({"message": "Application removed successfully."})
 
-# ================= COMPANY PORTAL APIS =================
 
 @app.route("/api/company/stats", methods=["GET"])
 @auth_required()
@@ -667,11 +976,9 @@ def company_stats():
         
     drives_count = PlacementDrive.query.filter_by(company_id=company.company_id).count()
     
-    # Received applications count across all company drives
     drive_ids = [d.drive_id for d in PlacementDrive.query.filter_by(company_id=company.company_id).all()]
     applications_count = Application.query.filter(Application.drive_id.in_(drive_ids)).count() if drive_ids else 0
     
-    # Shortlisted candidates count across all company drives
     shortlisted_count = Application.query.filter(
         Application.drive_id.in_(drive_ids),
         Application.status == "Shortlisted"
@@ -691,6 +998,7 @@ def company_drives():
     if current_user.role != "Company":
         return jsonify({"message": "Unauthorized"}), 403
         
+    check_and_close_expired_drives()
     company = Company.query.filter_by(user_id=current_user.id).first()
     if not company or company.approval_status != "Approved" or company.is_blacklisted:
         return jsonify({"message": "Access denied. Company profile not approved or blacklisted."}), 403
@@ -703,10 +1011,21 @@ def company_drives():
             
         deadline = None
         if data.get("application_deadline"):
+            val = data.get("application_deadline")
             try:
-                deadline = datetime.strptime(data.get("application_deadline"), "%Y-%m-%d").date()
+                deadline = datetime.strptime(val, "%Y-%m-%dT%H:%M")
             except ValueError:
-                return jsonify({"message": "Invalid date format for deadline. Use YYYY-MM-DD"}), 400
+                try:
+                    deadline = datetime.strptime(val, "%Y-%m-%d %H:%M")
+                except ValueError:
+                    try:
+                        deadline = datetime.strptime(val, "%Y-%m-%d")
+                        deadline = deadline.replace(hour=23, minute=59)
+                    except ValueError:
+                        return jsonify({"message": "Invalid format for deadline. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM"}), 400
+            
+            if deadline < datetime.utcnow():
+                return jsonify({"message": "Application deadline must be a future date/time."}), 400
 
         drive = PlacementDrive(
             company_id=company.company_id,
@@ -718,7 +1037,7 @@ def company_drives():
             location=data.get("location"),
             skills_required=data.get("skills_required"),
             benefits=data.get("benefits"),
-            status="Pending"  # Requires Admin Approval
+            status="Pending"
         )
         db.session.add(drive)
         db.session.commit()
@@ -729,7 +1048,6 @@ def company_drives():
         
         return jsonify({"message": "Placement drive posted successfully. Awaiting Admin approval.", "drive_id": drive.drive_id}), 201
 
-    # GET method
     drives = PlacementDrive.query.filter_by(company_id=company.company_id).all()
     res = []
     for d in drives:
@@ -738,7 +1056,7 @@ def company_drives():
             "job_title": d.job_title,
             "job_description": d.job_description,
             "eligibility_criteria": d.eligibility_criteria,
-            "application_deadline": d.application_deadline.strftime("%Y-%m-%d") if d.application_deadline else None,
+            "application_deadline": d.application_deadline.strftime("%Y-%m-%d %H:%M") if d.application_deadline else None,
             "status": d.status,
             "salary": d.salary,
             "location": d.location,
@@ -759,14 +1077,13 @@ def company_toggle_drive_status(drive_id):
         
     drive = PlacementDrive.query.filter_by(drive_id=drive_id, company_id=company.company_id).first_or_404()
     
-    # Can only manage if approved/active/closed
-    if drive.status not in ["Approved", "Active", "Closed"]:
-        return jsonify({"message": "Drive status cannot be toggled because it is not approved by the administrator."}), 400
-        
     if drive.status == "Closed":
-        drive.status = "Active"
-    else:
+        return jsonify({"message": "This drive has been closed and cannot be reopened."}), 400
+        
+    if drive.status in ["Approved", "Active"]:
         drive.status = "Closed"
+    else:
+        return jsonify({"message": "Drive status cannot be toggled because it is not active or approved."}), 400
         
     db.session.commit()
     
@@ -808,7 +1125,12 @@ def company_applications():
             "status": a.status,
             "feedback": a.feedback,
             "interview_date": a.interview_date.strftime("%Y-%m-%d %H:%M") if a.interview_date else None,
-            "application_date": a.application_date.strftime("%Y-%m-%d %H:%M") if a.application_date else None
+            "application_date": a.application_date.strftime("%Y-%m-%d %H:%M") if a.application_date else None,
+            "meet_link": a.meet_link,
+            "interview_description": a.interview_description,
+            "interview_confirmed": a.interview_confirmed,
+            "drive_salary": a.placement_drive.salary,
+            "drive_benefits": a.placement_drive.benefits
         })
     return jsonify(res)
 
@@ -835,8 +1157,41 @@ def company_update_application_status(app_id):
     if "feedback" in data:
         appln.feedback = data.get("feedback")
         
-    if new_status in ["Offer", "Placed"]:
+    if new_status == "Placed":
         import datetime
+        custom_pos = data.get("position") or appln.placement_drive.job_title
+        custom_sal = data.get("salary")
+        if custom_sal is not None:
+            try:
+                custom_sal = float(custom_sal)
+            except ValueError:
+                custom_sal = appln.placement_drive.salary
+        else:
+            custom_sal = appln.placement_drive.salary
+            
+        custom_joining_date = None
+        if data.get("joining_date"):
+            try:
+                custom_joining_date = datetime.datetime.strptime(data.get("joining_date"), "%Y-%m-%d").date()
+            except ValueError:
+                custom_joining_date = datetime.date.today() + datetime.timedelta(days=90)
+        else:
+            custom_joining_date = datetime.date.today() + datetime.timedelta(days=90)
+            
+        custom_benefits = data.get("benefits") or appln.placement_drive.benefits
+        
+        pdf_filename = f"offer_{appln.application_id}.pdf"
+        pdf_path = os.path.join(app.root_path, "static", "uploads", "offers", pdf_filename)
+        generate_offer_letter_pdf(
+            student_name=appln.student.full_name,
+            company_name=company.company_name,
+            position=custom_pos,
+            salary=custom_sal,
+            joining_date_str=custom_joining_date.strftime("%Y-%m-%d"),
+            benefits=custom_benefits,
+            dest_path=pdf_path
+        )
+        
         existing_placement = Placement.query.filter_by(
             student_id=appln.student_id,
             company_id=company.company_id,
@@ -847,15 +1202,51 @@ def company_update_application_status(app_id):
                 student_id=appln.student_id,
                 company_id=company.company_id,
                 drive_id=appln.drive_id,
-                position=appln.placement_drive.job_title,
-                salary=appln.placement_drive.salary,
-                joining_date=datetime.date.today() + datetime.timedelta(days=90),
-                offer_letter=f"offer_{appln.application_id}.txt"
+                position=custom_pos,
+                salary=custom_sal,
+                joining_date=custom_joining_date,
+                offer_letter=f"/static/uploads/offers/{pdf_filename}"
             )
             db.session.add(new_placement)
-        
+        else:
+            existing_placement.position = custom_pos
+            existing_placement.salary = custom_sal
+            existing_placement.joining_date = custom_joining_date
+            existing_placement.offer_letter = f"/static/uploads/offers/{pdf_filename}"
+            
     db.session.commit()
     
+    if new_status == "Shortlisted":
+        subject = f"Application Update: Shortlisted for {appln.placement_drive.job_title}"
+        body = f"Dear {appln.student.full_name},\n\nWe are pleased to inform you that you have been shortlisted by '{company.company_name}' for the position of '{appln.placement_drive.job_title}'.\n\nPlease check your student dashboard for updates regarding scheduling your placement interview.\n\nBest regards,\nCampus Placement Office"
+        send_email_notification(appln.student.user.email, subject, body, sender_email=company.user.email, sender_name=f"{company.company_name} Recruitment")
+    elif new_status == "Placed":
+        pdf_filename = f"offer_{appln.application_id}.pdf"
+        pdf_path = os.path.join(app.root_path, "static", "uploads", "offers", pdf_filename)
+        subject = f"Congratulations! Placement Offer from {company.company_name}"
+        body = (
+            f"Dear {appln.student.full_name},\n\n"
+            f"We are thrilled to inform you that you have been selected for the position of '{custom_pos}' "
+            f"at '{company.company_name}' with a salary package of {custom_sal} LPA!\n\n"
+            f"Please find your official employment offer letter attached to this email as a PDF file.\n\n"
+            f"We wish you all the best and look forward to having you on board!\n\n"
+            f"Best regards,\n"
+            f"{company.company_name} HR Team"
+        )
+        send_email_notification(
+            to_email=appln.student.user.email,
+            subject=subject,
+            body_text=body,
+            sender_email=company.user.email,
+            sender_name=f"{company.company_name} HR",
+            attachment_path=pdf_path,
+            attachment_filename=pdf_filename
+        )
+    elif new_status == "Rejected":
+        subject = f"Application Update: {appln.placement_drive.job_title} at {company.company_name}"
+        body = f"Dear {appln.student.full_name},\n\nThank you for your interest and for taking the time to apply for the position of '{appln.placement_drive.job_title}' with '{company.company_name}'.\n\nUnfortunately, we will not be moving forward with your application at this time.\n\nWe wish you all the best in your career pursuits.\n\nBest regards,\nCampus Placement Office"
+        send_email_notification(appln.student.user.email, subject, body, sender_email=company.user.email, sender_name=f"{company.company_name} HR")
+        
     invalidate_cache_by_pattern(f"company_stats_cache:{company.company_id}")
     invalidate_cache_by_pattern("admin_stats_cache")
     invalidate_cache_by_pattern("student_drives:*")
@@ -882,11 +1273,13 @@ def company_schedule_interview(app_id):
         
     data = request.get_json()
     date_str = data.get("interview_date")
+    meet_link = data.get("meet_link")
+    description = data.get("interview_description")
+    
     if not date_str:
         return jsonify({"message": "Interview date is required."}), 400
         
     try:
-        # Expected format YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
         interview_dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M")
     except ValueError:
         try:
@@ -895,23 +1288,50 @@ def company_schedule_interview(app_id):
             return jsonify({"message": "Invalid date format. Use YYYY-MM-DD HH:MM"}), 400
             
     appln.interview_date = interview_dt
+    appln.meet_link = meet_link
+    appln.interview_description = description
+    appln.interview_confirmed = True
     appln.status = "Interview"
     db.session.commit()
+    
+    subject = f"Interview Scheduled: {appln.placement_drive.job_title} at {company.company_name}"
+    body = (
+        f"Dear {appln.student.full_name},\n\n"
+        f"An interview has been scheduled for you with '{company.company_name}' for the position of '{appln.placement_drive.job_title}'.\n\n"
+        f"Interview Date & Time: {interview_dt.strftime('%Y-%m-%d %H:%M')}\n"
+        f"Google Meet / Meeting Link: {meet_link or 'Will be shared soon'}\n"
+        f"Details / Instructions: {description or 'N/A'}\n\n"
+        f"Please log in to your student dashboard to view details and join the meeting link at the scheduled time.\n\n"
+        f"Best regards,\n"
+        f"{company.company_name} Recruitment Team"
+    )
+    send_email_notification(appln.student.user.email, subject, body, sender_email=company.user.email, sender_name=f"{company.company_name} Recruitment")
     
     invalidate_cache_by_pattern(f"company_stats_cache:{company.company_id}")
     invalidate_cache_by_pattern("admin_stats_cache")
     invalidate_cache_by_pattern("student_drives:*")
     
     return jsonify({
-        "message": "Interview scheduled successfully.",
-        "interview_date": appln.interview_date.strftime("%Y-%m-%d %H:%M")
+        "message": "Interview invitation sent to student.",
+        "status": appln.status,
+        "interview_date": date_str,
+        "meet_link": meet_link,
+        "interview_description": description,
+        "interview_confirmed": True
     })
 
-# ================= STUDENT PORTAL APIS =================
 
-import os
-from flask import send_file
-import io
+@app.route("/api/user/smtp-password", methods=["GET", "POST"])
+@auth_required()
+def user_smtp_password():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        password = data.get("smtp_app_password", "")
+        password = password.replace(" ", "")
+        current_user.smtp_app_password = password
+        db.session.commit()
+        return jsonify({"message": "SMTP App Password updated successfully."})
+    return jsonify({"smtp_app_password": current_user.smtp_app_password or ""})
 
 @app.route("/api/student/profile", methods=["GET", "POST"])
 @auth_required()
@@ -939,7 +1359,6 @@ def student_profile():
             student.skills = request.form.get("skills", student.skills)
             student.experience = request.form.get("experience", student.experience)
             
-            # File upload for resume
             if "resume_file" in request.files:
                 file = request.files["resume_file"]
                 if file and file.filename:
@@ -987,6 +1406,7 @@ def student_list_drives():
     if current_user.role != "Student":
         return jsonify({"message": "Unauthorized"}), 403
         
+    check_and_close_expired_drives()
     student = Student.query.filter_by(user_id=current_user.id).first()
     if not student:
         return jsonify({"message": "Student profile not found"}), 404
@@ -997,10 +1417,8 @@ def student_list_drives():
     if cached is not None:
         return jsonify(cached)
     
-    # Base query: Approved drives
     drives_query = PlacementDrive.query.filter(PlacementDrive.status.in_(["Approved", "Active"]))
     
-    # If search query exists, match by company name, job position (title), or required skills
     if query_str:
         from models import Company
         drives_query = drives_query.join(Company).filter(
@@ -1022,7 +1440,7 @@ def student_list_drives():
             "job_title": d.job_title,
             "job_description": d.job_description,
             "eligibility_criteria": d.eligibility_criteria,
-            "application_deadline": d.application_deadline.strftime("%Y-%m-%d") if d.application_deadline else None,
+            "application_deadline": d.application_deadline.strftime("%Y-%m-%d %H:%M") if d.application_deadline else None,
             "salary": d.salary,
             "location": d.location,
             "skills_required": d.skills_required,
@@ -1088,7 +1506,10 @@ def student_applications():
             "application_date": a.application_date.strftime("%Y-%m-%d %H:%M") if a.application_date else None,
             "status": a.status,
             "feedback": a.feedback,
-            "interview_date": a.interview_date.strftime("%Y-%m-%d %H:%M") if a.interview_date else None
+            "interview_date": a.interview_date.strftime("%Y-%m-%d %H:%M") if a.interview_date else None,
+            "meet_link": a.meet_link,
+            "interview_description": a.interview_description,
+            "interview_confirmed": a.interview_confirmed
         })
     return jsonify(res)
 
@@ -1129,54 +1550,32 @@ def student_download_offer(placement_id):
     if placement.student_id != student.student_id:
         return jsonify({"message": "Access denied"}), 403
         
-    current_date = datetime.utcnow().strftime("%Y-%m-%d")
-    joining_date_str = placement.joining_date.strftime("%B %d, %Y") if placement.joining_date else "TBD"
-    
-    letter_content = f"""========================================================================
-                     CAMPUS PLACEMENT CONFIRMATION LETTER
-========================================================================
-Date: {current_date}
-Ref: PP-{placement.placement_id:04d}
-
-Dear {student.full_name},
-
-We are pleased to issue this Placement Confirmation Letter on behalf of
-the Campus Recruitment Committee. 
-
-Following your successful performance and shortlisting by recruiters,
-you have been offered employment with the following details:
-
-Candidate Name:    {student.full_name}
-Department/Branch: {student.branch or 'N/A'}
-Selected Company:  {placement.company.company_name}
-Designation:       {placement.position or 'Graduate Trainee'}
-Annual CTC:        {placement.salary or 0.0} LPA
-Expected Joining:  {joining_date_str}
-
-This letter serves as an official confirmation of placement from our
-end. Your actual joining instructions and official onboarding package
-will be shared separately by the company's Human Resources department.
-
-We congratulate you on this milestone and wish you a successful career.
-
-Sincerely,
-
-Campus Placement Office
-Placement System Verification
-------------------------------------------------------------------------
-Generated Electronically - Secure Verification Code: SEC-{placement.placement_id}-{student.student_id}
-========================================================================
-"""
-    mem_file = io.BytesIO(letter_content.encode('utf-8'))
-    filename = f"OfferLetter_{placement.company.company_name.replace(' ', '_')}_{student.full_name.replace(' ', '_')}.txt"
+    pdf_filename = f"offer_ref_{placement.placement_id}.pdf"
+    pdf_path = os.path.join(app.root_path, "static", "uploads", "offers", pdf_filename)
+    if not os.path.exists(pdf_path):
+        import datetime
+        joining_date_str = placement.joining_date.strftime("%Y-%m-%d") if placement.joining_date else datetime.date.today().strftime("%Y-%m-%d")
+        benefits = placement.placement_drive.benefits if placement.placement_drive else "Standard corporate benefits package"
+        generate_offer_letter_pdf(
+            student_name=student.full_name,
+            company_name=placement.company.company_name,
+            position=placement.position or "Graduate Trainee",
+            salary=placement.salary or 0.0,
+            joining_date_str=joining_date_str,
+            benefits=benefits,
+            dest_path=pdf_path
+        )
+        placement.offer_letter = f"/static/uploads/offers/{pdf_filename}"
+        db.session.commit()
+        
+    filename = f"OfferLetter_{placement.company.company_name.replace(' ', '_')}_{student.full_name.replace(' ', '_')}.pdf"
     return send_file(
-        mem_file,
-        mimetype="text/plain",
+        pdf_path,
+        mimetype="application/pdf",
         as_attachment=True,
         download_name=filename
     )
 
-# ================= ASYNCHRONOUS EXPORT APIS =================
 
 @app.route("/api/common/export-csv", methods=["POST"])
 @auth_required()
@@ -1184,11 +1583,20 @@ def trigger_csv_export():
     if current_user.role not in ["Student", "Company"]:
         return jsonify({"message": "Access denied"}), 403
         
+    import uuid
+    task_id = str(uuid.uuid4())
+    
+    try:
+        redis_client.setex(f"export_status:{task_id}", 600, json.dumps({"status": "PENDING"}))
+    except Exception as e:
+        print("[Redis] Error setting initial task status:", e)
+        
     from tasks import export_applications_csv
-    task = export_applications_csv.delay(current_user.id, current_user.role)
+    export_applications_csv.delay(current_user.id, current_user.role, task_id)
+    
     return jsonify({
-        "message": "Export task started in background.",
-        "task_id": task.id
+        "message": "Export task started.",
+        "task_id": task_id
     }), 202
 
 @app.route("/api/common/export-status/<task_id>", methods=["GET"])
@@ -1197,22 +1605,122 @@ def check_export_status(task_id):
     if current_user.role not in ["Student", "Company"]:
         return jsonify({"message": "Access denied"}), 403
         
-    from celery.result import AsyncResult
-    from tasks import celery_app
-    res = AsyncResult(task_id, app=celery_app)
-    
-    if res.ready():
-        if res.successful():
-            return jsonify({
-                "status": "SUCCESS",
-                "download_url": res.result
-            })
-        else:
-            return jsonify({
-                "status": "FAILURE",
-                "message": str(res.result)
-            })
+    try:
+        data_str = redis_client.get(f"export_status:{task_id}")
+        if data_str:
+            return jsonify(json.loads(data_str))
+    except Exception as e:
+        print("[Redis] Error reading task status:", e)
+        
     return jsonify({"status": "PENDING"})
+
+
+@app.route("/api/common/students/<int:student_id>/profile", methods=["GET"])
+@auth_required()
+def get_student_profile_details(student_id):
+    if current_user.role not in ["Admin", "Company"]:
+        return jsonify({"message": "Access denied"}), 403
+        
+    student = Student.query.get_or_404(student_id)
+    
+    if current_user.role == "Company":
+        company = Company.query.filter_by(user_id=current_user.id).first()
+        if not company:
+            return jsonify({"message": "Access denied"}), 403
+        drive_ids = [d.drive_id for d in company.placement_drives]
+        has_applied = Application.query.filter(
+            Application.student_id == student_id,
+            Application.drive_id.in_(drive_ids)
+        ).first() is not None
+        if not has_applied:
+            return jsonify({"message": "Access denied. Candidate has not applied to your postings."}), 403
+            
+    apps = []
+    for a in student.applications:
+        apps.append({
+            "application_id": a.application_id,
+            "company_name": a.placement_drive.company.company_name,
+            "job_title": a.placement_drive.job_title,
+            "application_date": a.application_date.strftime("%Y-%m-%d %H:%M") if a.application_date else None,
+            "status": a.status,
+            "interview_date": a.interview_date.strftime("%Y-%m-%d %H:%M") if a.interview_date else None,
+            "feedback": a.feedback,
+            "meet_link": a.meet_link,
+            "interview_description": a.interview_description,
+            "interview_confirmed": a.interview_confirmed
+        })
+        
+    placements = []
+    for p in student.placements:
+        placements.append({
+            "placement_id": p.placement_id,
+            "company_name": p.company.company_name,
+            "position": p.position,
+            "salary": p.salary,
+            "joining_date": p.joining_date.strftime("%Y-%m-%d") if p.joining_date else None,
+            "offer_letter": f"/download-offer/{p.placement_id}"
+        })
+        
+    return jsonify({
+        "student_id": student.student_id,
+        "full_name": student.full_name,
+        "email": student.user.email,
+        "phone": student.phone,
+        "branch": student.branch,
+        "cgpa": student.cgpa,
+        "graduation_year": student.graduation_year,
+        "skills": student.skills,
+        "experience": student.experience,
+        "resume": student.resume,
+        "applications": apps,
+        "placements": placements
+    })
+
+
+@app.route("/api/admin/reports", methods=["GET"])
+@auth_required()
+def admin_list_generated_reports():
+    if current_user.role != "Admin":
+        return jsonify({"message": "Access denied"}), 403
+        
+    report_types = ["daily", "weekly", "monthly"]
+    reports = []
+    
+    for rt in report_types:
+        directory = os.path.join(app.root_path, "static", "reports", rt)
+        if os.path.exists(directory):
+            for filename in os.listdir(directory):
+                if filename.endswith(".pdf"):
+                    parts = filename.split("_")
+                    company_name = "Unknown"
+                    try:
+                        idx = parts.index("company")
+                        co_id = int(parts[idx+1])
+                        from models import Company
+                        co = Company.query.get(co_id)
+                        if co:
+                            company_name = co.company_name
+                    except Exception:
+                        pass
+                    
+                    reports.append({
+                        "type": rt.capitalize(),
+                        "company_name": company_name,
+                        "filename": filename,
+                        "url": f"/static/reports/{rt}/{filename}"
+                    })
+                    
+    return jsonify(reports)
+
+@app.route("/api/admin/trigger-monthly-reports", methods=["POST"])
+@auth_required()
+def admin_trigger_reports():
+    if current_user.role != "Admin":
+        return jsonify({"message": "Access denied"}), 403
+        
+    from tasks import generate_monthly_reports
+    generate_monthly_reports.delay()
+    return jsonify({"message": "Monthly placement report generation job triggered successfully."})
 
 if __name__ == "__main__":
     app.run(debug=True)

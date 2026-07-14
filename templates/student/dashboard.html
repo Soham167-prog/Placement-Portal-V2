@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Dashboard - Placement Portal</title>
-  <!-- Google Fonts Inter -->
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Bootstrap 5 CSS CDN -->
+  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Bootstrap Icons CDN -->
+  
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
-  <!-- Vue 3 CDN -->
+  
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <!-- Axios CDN -->
+  
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <style>
     .nav-tabs .nav-link {
@@ -38,7 +38,7 @@
 <body>
   {% raw %}
   <div id="app" class="container py-4">
-    <!-- Navbar / Header -->
+    
     <header class="d-flex flex-column flex-md-row justify-content-between align-items-center pb-4 mb-4 border-bottom border-secondary">
       <div class="d-flex align-items-center gap-3">
         <div class="bg-indigo-500/20 text-indigo-300 p-2.5 rounded-3">
@@ -54,7 +54,7 @@
       </button>
     </header>
 
-    <!-- Blacklist Alert -->
+    
     <div v-if="profile.is_blacklisted" class="alert alert-danger border-0 py-3 mb-4 rounded-3 d-flex align-items-center gap-2" role="alert">
       <i class="bi bi-slash-circle-fill fs-5"></i>
       <div>
@@ -62,12 +62,12 @@
       </div>
     </div>
 
-    <!-- Global Alerts -->
+    
     <div v-if="alert.text" :class="['alert', 'alert-' + alert.type, 'border-0', 'py-3', 'mb-4', 'text-center', 'small']" role="alert">
       {{ alert.text }}
     </div>
 
-    <!-- Main Navigation Tabs -->
+    
     <ul class="nav nav-tabs border-secondary mb-4">
       <li class="nav-item">
         <a class="nav-link" :class="{ active: currentTab === 'overview' }" href="#" @click.prevent="currentTab = 'overview'">
@@ -96,13 +96,13 @@
       </li>
     </ul>
 
-    <!-- TAB CONTENTS -->
+    
     <div class="tab-content">
       
-      <!-- OVERVIEW TAB -->
+      
       <div v-if="currentTab === 'overview'">
         <div class="row">
-          <!-- Profile Quick Info -->
+          
           <div class="col-lg-4 mb-4">
             <div class="glass-card p-4 h-100 shadow-sm">
               <h5 class="fw-bold text-white mb-3">Academic Summary</h5>
@@ -122,7 +122,7 @@
             </div>
           </div>
 
-          <!-- Application Stats Card -->
+          
           <div class="col-lg-4 mb-4" @click="currentTab = 'applications'" style="cursor: pointer;">
             <div class="glass-card p-4 h-100 shadow-sm d-flex flex-column justify-content-between">
               <div class="d-flex justify-content-between align-items-start">
@@ -136,7 +136,7 @@
             </div>
           </div>
 
-          <!-- Offers stats card -->
+          
           <div class="col-lg-4 mb-4" @click="currentTab = 'offers'" style="cursor: pointer;">
             <div class="glass-card p-4 h-100 shadow-sm d-flex flex-column justify-content-between">
               <div class="d-flex justify-content-between align-items-start">
@@ -151,17 +151,18 @@
           </div>
         </div>
 
-        <!-- Upcoming Interviews Table -->
+        
         <div class="glass-card p-4 shadow-sm mt-2">
           <h5 class="fw-bold text-white mb-3"><i class="bi bi-calendar-check-fill text-indigo-400 me-2"></i>My Interview Schedules</h5>
           <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle" style="color: #cbd5e1;">
               <thead>
                 <tr class="border-secondary text-slate-400">
-                  <th>Recruiter</th>
-                  <th>Job Position</th>
-                  <th>Scheduled Date & Time</th>
-                  <th>Status</th>
+                  <th>Employer</th>
+                  <th>Position</th>
+                  <th>Scheduled Time</th>
+                  <th>Meeting Link</th>
+                  <th>Instructions</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,10 +170,20 @@
                   <td class="text-white fw-semibold">{{ interview.company_name }}</td>
                   <td>{{ interview.job_title }}</td>
                   <td class="font-monospace text-indigo-300"><i class="bi bi-clock me-1.5"></i>{{ interview.interview_date }}</td>
-                  <td><span class="badge bg-warning bg-opacity-25 text-warning">Scheduled</span></td>
+                  <td>
+                    <a v-if="interview.meet_link" :href="interview.meet_link" target="_blank" class="text-indigo-400 text-decoration-none fw-semibold">
+                      <i class="bi bi-camera-video-fill me-1"></i> Join Call
+                    </a>
+                    <span v-else class="text-slate-400 small">Link Pending</span>
+                  </td>
+                  <td>
+                    <span class="small text-slate-300" style="white-space: pre-wrap; word-break: break-word;">
+                      {{ interview.interview_description || '-' }}
+                    </span>
+                  </td>
                 </tr>
                 <tr v-if="interviewSchedules.length === 0">
-                  <td colspan="4" class="text-center py-4 text-slate-400">No interviews scheduled yet.</td>
+                  <td colspan="5" class="text-center py-4 text-slate-400">No interviews scheduled yet.</td>
                 </tr>
               </tbody>
             </table>
@@ -180,7 +191,7 @@
         </div>
       </div>
 
-      <!-- EDIT PROFILE TAB -->
+      
       <div v-if="currentTab === 'profile'" class="row justify-content-center">
         <div class="col-lg-9">
           <div class="glass-card p-5 shadow-sm">
@@ -197,7 +208,7 @@
                 </div>
                 <div class="col-md-6 mb-3">
                   <label for="prof-branch" class="form-label text-slate-300">Academic Branch</label>
-                  <input type="text" id="prof-branch" class="form-control" v-model="profileForm.branch" placeholder="e.g. CSE">
+                  <input type="text" id="prof-branch" class="form-control" v-model="profileForm.branch">
                 </div>
                 <div class="col-md-3 mb-3">
                   <label for="prof-cgpa" class="form-label text-slate-300">CGPA</label>
@@ -209,11 +220,11 @@
                 </div>
                 <div class="col-12 mb-3">
                   <label for="prof-skills" class="form-label text-slate-300">Skills (Comma-separated)</label>
-                  <input type="text" id="prof-skills" class="form-control" v-model="profileForm.skills" placeholder="e.g. Java, Python, Vue, Database design">
+                  <input type="text" id="prof-skills" class="form-control" v-model="profileForm.skills">
                 </div>
                 <div class="col-12 mb-3">
                   <label for="prof-exp" class="form-label text-slate-300">Experience / Internships</label>
-                  <textarea id="prof-exp" rows="3" class="form-control" v-model="profileForm.experience" placeholder="Detail any prior experiences, positions, or projects..."></textarea>
+                  <textarea id="prof-exp" rows="3" class="form-control" v-model="profileForm.experience"></textarea>
                 </div>
                 <div class="col-12 mb-4">
                   <label for="prof-resume" class="form-label text-slate-300">Upload PDF Resume</label>
@@ -229,19 +240,20 @@
               </button>
             </form>
           </div>
+
         </div>
       </div>
 
-      <!-- SEARCH JOBS TAB -->
+      
       <div v-if="currentTab === 'jobs'">
-        <!-- Search bar -->
+        
         <div class="glass-card p-4 shadow-sm mb-4">
           <div class="row align-items-center">
             <div class="col-md-12">
               <label class="form-label text-slate-300 small">Search Active Job Postings</label>
               <div class="input-group">
                 <span class="input-group-text bg-slate-900 border-slate-800 text-slate-400"><i class="bi bi-search"></i></span>
-                <input type="text" class="form-control" v-model="jobSearchVal" @input="debouncedFetchDrives" placeholder="Search by Company Name, Job Title, or Skills required...">
+                <input type="text" class="form-control" v-model="jobSearchVal" @input="debouncedFetchDrives">
               </div>
             </div>
           </div>
@@ -295,7 +307,7 @@
         </div>
       </div>
 
-      <!-- MY APPLICATIONS TAB -->
+      
       <div v-if="currentTab === 'applications'">
         <div class="glass-card p-4 shadow-sm">
           <div class="d-flex justify-content-between align-items-center mb-3">
@@ -355,7 +367,7 @@
         </div>
       </div>
 
-      <!-- OFFERS & PLACEMENT TAB -->
+      
       <div v-if="currentTab === 'offers'">
         <div class="glass-card p-4 shadow-sm">
           <h5 class="fw-bold text-white mb-3">Offers & Placement Confirmations</h5>
@@ -377,8 +389,8 @@
                   <td>{{ offer.salary }} LPA</td>
                   <td>{{ offer.joining_date || '-' }}</td>
                   <td>
-                    <a :href="'/api/student/placements/' + offer.placement_id + '/download-offer'" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1">
-                      <i class="bi bi-download"></i> Download Offer
+                    <a :href="'/api/student/placements/' + offer.placement_id + '/download-offer'" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1.5 fw-semibold">
+                      <i class="bi bi-file-earmark-pdf-fill text-white fs-6"></i> Download PDF Offer
                     </a>
                   </td>
                 </tr>
@@ -402,7 +414,6 @@
         const currentTab = ref('overview');
         const profile = ref({ is_blacklisted: false, full_name: '', resume: '' });
         
-        // Editable fields
         const profileForm = ref({ full_name: '', phone: '', branch: '', cgpa: null, graduation_year: null, skills: '', experience: '' });
         const resumeFile = ref(null);
 
@@ -420,7 +431,6 @@
           setTimeout(() => { alert.value = { text: '', type: '' }; }, 4000);
         };
 
-        // Fetch profile
         const fetchProfile = async () => {
           try {
             const res = await axios.get('/api/student/profile');
@@ -439,11 +449,9 @@
           }
         };
 
-        // Update profile
         const handleUpdateProfile = async () => {
           submitting.value = true;
           try {
-            // Build FormData for multipart upload
             const fd = new FormData();
             fd.append('full_name', profileForm.value.full_name);
             fd.append('phone', profileForm.value.phone);
@@ -469,7 +477,6 @@
           }
         };
 
-        // Fetch Drives
         const fetchDrives = async () => {
           try {
             const res = await axios.get('/api/student/drives', {
@@ -487,7 +494,6 @@
           driveSearchTimeout = setTimeout(fetchDrives, 300);
         };
 
-        // Fetch Applications
         const fetchApplications = async () => {
           try {
             const res = await axios.get('/api/student/applications');
@@ -498,7 +504,6 @@
           }
         };
 
-        // Fetch Offers
         const fetchOffers = async () => {
           try {
             const res = await axios.get('/api/student/placements');
@@ -509,7 +514,6 @@
           }
         };
 
-        // Apply for Job
         const applyForJob = async (driveId) => {
           try {
             const res = await axios.post(`/api/student/drives/${driveId}/apply`);
@@ -521,9 +525,10 @@
           }
         };
 
-        // Upcoming interviews agenda
+
+
         const interviewSchedules = computed(() => {
-          return applications.value.filter(a => a.status === 'Shortlisted' && a.interview_date);
+          return applications.value.filter(a => (a.status === 'Interview' || a.status === 'Shortlisted') && a.interview_date);
         });
 
         const getResumeBasename = computed(() => {

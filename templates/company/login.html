@@ -37,13 +37,13 @@
       <form @submit.prevent="handleLogin" novalidate>
         <div class="mb-3">
           <label for="comp-email" class="form-label text-slate-300">Email Address</label>
-          <input type="email" id="comp-email" class="form-control" v-model="loginForm.email" required placeholder="hr@google.com">
+          <input type="email" id="comp-email" class="form-control" v-model="loginForm.email" required>
         </div>
 
         <div class="mb-4">
           <label for="comp-password" class="form-label text-slate-300">Password</label>
           <div class="input-group">
-            <input :type="showPassword ? 'text' : 'password'" id="comp-password" class="form-control" v-model="loginForm.password" required placeholder="••••••••">
+            <input :type="showPassword ? 'text' : 'password'" id="comp-password" class="form-control" v-model="loginForm.password" required>
             <button class="btn btn-outline-secondary border-secondary bg-slate-800 text-slate-400" type="button" @click="showPassword = !showPassword">
               <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
             </button>

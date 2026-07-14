@@ -87,3 +87,16 @@ body {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
   color: inherit !important;
 }
+
+.cursor-pointer {
+  cursor: pointer;
+}
+.hover-row {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.hover-row:hover {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+}
+.hover-row:hover td {
+  color: #ffffff !important;
+}

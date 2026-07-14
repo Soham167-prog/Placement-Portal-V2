@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Company Dashboard - Placement Portal</title>
-  <!-- Google Fonts Inter -->
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Bootstrap 5 CSS CDN -->
+  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Bootstrap Icons CDN -->
+  
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
-  <!-- Vue 3 CDN -->
+  
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <!-- Axios CDN -->
+  
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <style>
     .nav-tabs .nav-link {
@@ -38,7 +38,7 @@
 <body>
   {% raw %}
   <div id="app" class="container py-4">
-    <!-- Navbar / Header -->
+    
     <header class="d-flex flex-column flex-md-row justify-content-between align-items-center pb-4 mb-4 border-bottom border-secondary">
       <div class="d-flex align-items-center gap-3">
         <div class="bg-indigo-500/20 text-indigo-300 p-2.5 rounded-3">
@@ -54,13 +54,13 @@
       </button>
     </header>
 
-    <!-- Global Alerts -->
+    
     <div v-if="alert.text" :class="['alert', 'alert-' + alert.type, 'border-0', 'py-3', 'mb-4', 'text-center', 'small']" role="alert">
       {{ alert.text }}
     </div>
 
-    <!-- Main Navigation Tabs -->
-    <ul class="nav nav-tabs border-secondary mb-4">
+    
+    <ul v-if="!selectedStudentProfile" class="nav nav-tabs border-secondary mb-4">
       <li class="nav-item">
         <a class="nav-link" :class="{ active: currentTab === 'overview' }" href="#" @click.prevent="currentTab = 'overview'">
           <i class="bi bi-grid-fill me-2"></i> Overview
@@ -81,15 +81,20 @@
           <i class="bi bi-people-fill me-2"></i> Applicants
         </a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'settings' }" href="#" @click.prevent="currentTab = 'settings'">
+          <i class="bi bi-gear-fill me-2"></i> Settings
+        </a>
+      </li>
     </ul>
 
-    <!-- TAB CONTENTS -->
-    <div class="tab-content">
+    
+    <div v-if="!selectedStudentProfile" class="tab-content">
       
-      <!-- OVERVIEW TAB -->
+      
       <div v-if="currentTab === 'overview'">
         <div class="row">
-          <!-- Total Job Postings Card -->
+          
           <div class="col-md-4 mb-4">
             <div class="glass-card p-4 shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -101,7 +106,7 @@
               </div>
             </div>
           </div>
-          <!-- Received Applications Card -->
+          
           <div class="col-md-4 mb-4">
             <div class="glass-card p-4 shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -113,7 +118,7 @@
               </div>
             </div>
           </div>
-          <!-- Shortlisted Candidates Card -->
+          
           <div class="col-md-4 mb-4">
             <div class="glass-card p-4 shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -140,7 +145,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="app in upcomingInterviews" :key="app.application_id" class="border-secondary">
+                <tr v-for="app in upcomingInterviews" :key="app.application_id" class="border-secondary cursor-pointer hover-row" @click="openStudentProfileModal(app.student_id)">
                   <td class="text-white fw-semibold">{{ app.student_name }}</td>
                   <td>{{ app.job_title }}</td>
                   <td><span class="text-indigo-300 font-monospace"><i class="bi bi-clock me-1.5"></i>{{ app.interview_date }}</span></td>
@@ -155,7 +160,7 @@
         </div>
       </div>
 
-      <!-- POST NEW JOB TAB -->
+      
       <div v-if="currentTab === 'post-job'" class="row justify-content-center">
         <div class="col-lg-8">
           <div class="glass-card p-5 shadow-sm">
@@ -163,38 +168,43 @@
             <form @submit.prevent="handlePostJob" novalidate>
               <div class="mb-3">
                 <label for="job-title" class="form-label text-slate-300">Job Title *</label>
-                <input type="text" id="job-title" class="form-control" v-model="jobForm.job_title" required placeholder="e.g. Senior Software Engineer">
+                <input type="text" id="job-title" class="form-control" v-model="jobForm.job_title" required>
               </div>
 
               <div class="mb-3">
                 <label for="job-desc" class="form-label text-slate-300">Job Description</label>
-                <textarea id="job-desc" rows="4" class="form-control" v-model="jobForm.job_description" placeholder="Summarize role duties, team environment, etc."></textarea>
+                <textarea id="job-desc" rows="4" class="form-control" v-model="jobForm.job_description"></textarea>
               </div>
 
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label for="job-salary" class="form-label text-slate-300">Salary Package (LPA) *</label>
-                  <input type="number" step="0.1" id="job-salary" class="form-control" v-model.number="jobForm.salary" placeholder="e.g. 15.5">
+                  <input type="number" step="0.1" id="job-salary" class="form-control" v-model.number="jobForm.salary">
                 </div>
                 <div class="col-md-6 mb-3">
                   <label for="job-deadline" class="form-label text-slate-300">Application Deadline *</label>
-                  <input type="date" id="job-deadline" class="form-control" v-model="jobForm.application_deadline">
+                  <input type="datetime-local" id="job-deadline" class="form-control text-white bg-slate-900 border-slate-800" v-model="jobForm.application_deadline" required>
                 </div>
               </div>
 
               <div class="mb-3">
                 <label for="job-loc" class="form-label text-slate-300">Job Location</label>
-                <input type="text" id="job-loc" class="form-control" v-model="jobForm.location" placeholder="e.g. Bangalore, India (or Remote)">
+                <input type="text" id="job-loc" class="form-control" v-model="jobForm.location">
               </div>
 
               <div class="mb-3">
                 <label for="job-skills" class="form-label text-slate-300">Required Skills</label>
-                <input type="text" id="job-skills" class="form-control" v-model="jobForm.skills_required" placeholder="e.g. Python, SQL, REST APIs">
+                <input type="text" id="job-skills" class="form-control" v-model="jobForm.skills_required">
+              </div>
+
+              <div class="mb-3">
+                <label for="job-eligibility" class="form-label text-slate-300">Eligibility Criteria</label>
+                <input type="text" id="job-eligibility" class="form-control" v-model="jobForm.eligibility_criteria">
               </div>
 
               <div class="mb-4">
                 <label for="job-benefits" class="form-label text-slate-300">Benefits & Perks</label>
-                <textarea id="job-benefits" rows="2" class="form-control" v-model="jobForm.benefits" placeholder="e.g. Health insurance, flexible hours, learning stipend"></textarea>
+                <textarea id="job-benefits" rows="2" class="form-control" v-model="jobForm.benefits"></textarea>
               </div>
 
               <button type="submit" class="btn btn-primary w-100 py-3 fw-bold text-white" :disabled="submitting">
@@ -206,7 +216,7 @@
         </div>
       </div>
 
-      <!-- JOB LIST TAB -->
+      
       <div v-if="currentTab === 'job-list'">
         <div class="glass-card p-4 shadow-sm">
           <h5 class="fw-bold text-white mb-3">Posted Job Positions</h5>
@@ -237,12 +247,12 @@
                     <span v-else class="badge bg-success bg-opacity-25 text-success px-2.5 py-1">Active</span>
                   </td>
                   <td>
-                    <button v-if="drive.status === 'Approved' || drive.status === 'Active' || drive.status === 'Closed'" 
+                    <button v-if="drive.status === 'Approved' || drive.status === 'Active'" 
                             @click="toggleDriveStatus(drive.drive_id)" 
-                            :class="['btn', 'btn-sm', drive.status === 'Closed' ? 'btn-success' : 'btn-outline-warning']">
-                      <i :class="drive.status === 'Closed' ? 'bi bi-play-fill' : 'bi bi-stop-fill'"></i>
-                      {{ drive.status === 'Closed' ? 'Open Drive' : 'Close Drive' }}
+                            class="btn btn-sm btn-outline-warning">
+                      <i class="bi bi-stop-fill"></i> Close Drive
                     </button>
+                    <span v-else-if="drive.status === 'Closed'" class="text-slate-500 small italic"><i class="bi bi-lock-fill me-1"></i>Permanently Closed</span>
                     <span v-else class="text-slate-400 small">-</span>
                   </td>
                 </tr>
@@ -255,9 +265,9 @@
         </div>
       </div>
 
-      <!-- APPLICANTS TAB -->
+      
       <div v-if="currentTab === 'applicants'">
-        <!-- Filter bar -->
+        
         <div class="glass-card p-4 shadow-sm mb-4">
           <div class="row align-items-center">
             <div class="col-md-4">
@@ -296,7 +306,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="app in filteredApplications" :key="app.application_id" class="border-secondary">
+                <tr v-for="app in filteredApplications" :key="app.application_id" class="border-secondary cursor-pointer hover-row" @click="openStudentProfileModal(app.student_id)">
                   <td>
                     <span class="d-block fw-bold text-white">{{ app.student_name }}</span>
                     <span class="d-block small text-slate-400">{{ app.student_email }} | {{ app.student_phone || '-' }}</span>
@@ -321,31 +331,30 @@
                   </td>
                   <td>
                     <div class="d-flex flex-column gap-1.5">
-                      <!-- Applied Status Controls -->
+                      
                       <div v-if="app.status === 'Applied'" class="d-flex gap-1">
-                        <button @click="openActionModal(app, 'Shortlisted')" class="btn btn-sm btn-warning">Shortlist</button>
-                        <button @click="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
+                        <button @click.stop="openActionModal(app, 'Shortlisted')" class="btn btn-sm btn-warning">Shortlist</button>
+                        <button @click.stop="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
                       </div>
                       
-                      <!-- Shortlisted / Interview Status Controls -->
+                      
                       <div v-if="app.status === 'Shortlisted' || app.status === 'Interview'" class="d-flex flex-column gap-1">
-                        <button @click="openInterviewModal(app)" class="btn btn-sm btn-outline-warning">
+                        <button @click.stop="openInterviewModal(app)" class="btn btn-sm btn-outline-warning">
                           <i class="bi bi-calendar-event"></i> Schedule Interview
                         </button>
                         <div class="d-flex gap-1 mt-1">
-                          <button @click="openActionModal(app, 'Offer')" class="btn btn-sm btn-success">Make Offer</button>
-                          <button @click="openActionModal(app, 'Placed')" class="btn btn-sm btn-outline-success text-white bg-success">Confirm Placed</button>
-                          <button @click="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
+                          <button @click.stop="openPlacementModal(app)" class="btn btn-sm btn-success">Place Candidate</button>
+                          <button @click.stop="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
                         </div>
                       </div>
 
-                      <!-- Offer Status Controls -->
+                      
                       <div v-if="app.status === 'Offer'" class="d-flex gap-1">
-                        <button @click="openActionModal(app, 'Placed')" class="btn btn-sm btn-success">Confirm Placed</button>
-                        <button @click="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
+                        <button @click.stop="openPlacementModal(app)" class="btn btn-sm btn-success">Place Candidate</button>
+                        <button @click.stop="openActionModal(app, 'Rejected')" class="btn btn-sm btn-outline-danger">Reject</button>
                       </div>
 
-                      <!-- Display Feedback -->
+                      
                       <span v-if="app.feedback" class="d-block small text-slate-400 mt-1 italic">
                         Feedback: "{{ app.feedback }}"
                       </span>
@@ -363,7 +372,7 @@
 
     </div>
 
-    <!-- FEEDBACK / STATUS MODAL -->
+    
     <div v-if="modal.show" class="modal-backdrop fade show" style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);"></div>
     <div v-if="modal.show" class="modal fade show d-block" tabindex="-1" role="dialog">
       <div class="modal-dialog modal-dialog-centered" role="document">
@@ -376,40 +385,275 @@
             <p class="text-slate-300 small">Provide selection or rejection feedback to candidate {{ modal.app.student_name }}.</p>
             <div class="mb-3">
               <label for="modal-feedback" class="form-label text-slate-300 small">Feedback / Notes</label>
-              <textarea id="modal-feedback" rows="3" class="form-control" v-model="modal.feedback" placeholder="Enter notes or explanation for the candidate..."></textarea>
+              <textarea id="modal-feedback" rows="3" class="form-control" v-model="modal.feedback"></textarea>
             </div>
           </div>
           <div class="modal-footer border-0 pt-0">
             <button type="button" class="btn btn-outline-light border-secondary" @click="modal.show = false">Cancel</button>
-            <button type="button" class="btn btn-primary" @click="submitActionStatus">Confirm Action</button>
+            <button type="button" class="btn btn-primary" :disabled="actionSubmitting" @click="submitActionStatus">
+              <span v-if="actionSubmitting" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              Confirm Action
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SCHEDULE INTERVIEW MODAL -->
-    <div v-if="interviewModal.show" class="modal-backdrop fade show" style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);"></div>
-    <div v-if="interviewModal.show" class="modal fade show d-block" tabindex="-1" role="dialog">
-      <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="glass-card modal-content border border-secondary p-4">
-          <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title fw-bold text-white">Schedule Interview</h5>
+    
+    <div v-if="interviewModal.show" class="modal fade show d-block" tabindex="-1" role="dialog" style="background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 1060; overflow-y: auto;" @click="interviewModal.show = false">
+      <div class="modal-dialog modal-dialog-centered" role="document" @click.stop>
+        <div class="glass-card modal-content border border-secondary p-4 shadow-lg">
+          <div class="modal-header border-0 pb-2 bg-slate-900 bg-opacity-50">
+            <h5 class="modal-title fw-bold text-white mb-0">Schedule Placement Interview</h5>
             <button type="button" class="btn-close btn-close-white" @click="interviewModal.show = false"></button>
           </div>
           <div class="modal-body py-3">
-            <p class="text-slate-300 small">Schedule placement interview for candidate {{ interviewModal.app.student_name }}.</p>
+            <p class="text-slate-300 small mb-3">Please specify the date, meeting link, and preparation details for candidate <strong>{{ interviewModal.app.student_name }}</strong>.</p>
             <div class="mb-3">
-              <label for="modal-dt" class="form-label text-slate-300 small">Interview Date & Time</label>
-              <input type="datetime-local" id="modal-dt" class="form-control" v-model="interviewModal.dateStr" required>
+              <label for="modal-dt" class="form-label text-slate-400 small">Interview Date & Time</label>
+              <input type="datetime-local" id="modal-dt" class="form-control bg-slate-800 border-slate-700 text-white" v-model="interviewModal.dateStr" required>
+            </div>
+            <div class="mb-3">
+              <label for="modal-meet" class="form-label text-slate-400 small">Google Meet / Video Call Link</label>
+              <input type="url" id="modal-meet" class="form-control bg-slate-800 border-slate-700 text-white" v-model="interviewModal.meetLink">
+            </div>
+            <div class="mb-3">
+              <label for="modal-desc" class="form-label text-slate-400 small">Instructions & Preparation Details</label>
+              <textarea id="modal-desc" rows="3" class="form-control bg-slate-800 border-slate-700 text-white small" v-model="interviewModal.description"></textarea>
             </div>
           </div>
-          <div class="modal-footer border-0 pt-0">
-            <button type="button" class="btn btn-outline-light border-secondary" @click="interviewModal.show = false">Cancel</button>
-            <button type="button" class="btn btn-primary" @click="submitScheduleInterview">Schedule</button>
+          <div class="modal-footer border-0 pt-0 d-flex justify-content-end gap-2 bg-slate-900 bg-opacity-50">
+            <button type="button" class="btn btn-sm btn-outline-light border-secondary" @click="interviewModal.show = false">Cancel</button>
+            <button type="button" class="btn btn-sm btn-warning px-4" :disabled="scheduling" @click="submitScheduleInterview">
+              <span v-if="scheduling" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              Send Invitation
+            </button>
           </div>
         </div>
       </div>
     </div>
+
+    <div v-if="currentTab === 'settings'" class="row justify-content-center pt-3 mb-4">
+      <div class="col-lg-8">
+        <div class="glass-card p-5 shadow-sm">
+          <h4 class="fw-bold text-white mb-3"><i class="bi bi-envelope-check-fill text-indigo-400 me-2"></i>Email Notification Consent</h4>
+          <p class="text-slate-300 small mb-4">
+            Enter your Gmail App Password to authorize sending secure real-time notification alerts (interview invitations, job offers, selections) directly from your company's email address.
+            Leave blank to disable email notifications.
+          </p>
+          <form @submit.prevent="saveSmtpPassword">
+            <div class="mb-3">
+              <label for="company-smtp-pass" class="form-label text-slate-300">Recruiter Gmail App Password</label>
+              <div class="input-group">
+                <span class="input-group-text bg-slate-900 border-slate-800 text-slate-400"><i class="bi bi-key-fill"></i></span>
+                <input type="password" id="company-smtp-pass" class="form-control text-white bg-slate-900 border-slate-800" v-model="smtpAppPassword">
+              </div>
+              <div class="form-text text-slate-500">Your password is only used to log in to SMTP during notification events.</div>
+            </div>
+            <button type="submit" class="btn btn-primary fw-bold px-4">
+              Save Settings
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="placementModal.show" class="modal fade show d-block" tabindex="-1" role="dialog" style="background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 1060; overflow-y: auto;" @click="placementModal.show = false">
+      <div class="modal-dialog modal-dialog-centered" role="document" @click.stop>
+        <div class="glass-card modal-content border border-secondary p-4 shadow-lg">
+          <div class="modal-header border-0 pb-2 bg-slate-900 bg-opacity-50">
+            <h5 class="modal-title fw-bold text-white mb-0"><i class="bi bi-award-fill text-success me-2"></i>Place & Confirm Selection</h5>
+            <button type="button" class="btn-close btn-close-white" @click="placementModal.show = false"></button>
+          </div>
+          <div class="modal-body py-3">
+            <p class="text-slate-300 small mb-4">Please fill in or customize the final placement terms for <strong>{{ placementModal.app.student_name }}</strong>. This will automatically generate a PDF offer letter and email it as an attachment.</p>
+            
+            <div class="mb-3">
+              <label for="place-pos" class="form-label text-slate-400 small">Job Position / Title *</label>
+              <input type="text" id="place-pos" class="form-control bg-slate-800 border-slate-700 text-white" v-model="placementModal.position" required>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="place-sal" class="form-label text-slate-400 small">Salary Package (LPA) *</label>
+                <input type="number" step="0.1" id="place-sal" class="form-control bg-slate-800 border-slate-700 text-white" v-model.number="placementModal.salary" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="place-date" class="form-label text-slate-400 small">Joining Date *</label>
+                <input type="date" id="place-date" class="form-control bg-slate-800 border-slate-700 text-white" v-model="placementModal.joiningDate" required>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="place-benefits" class="form-label text-slate-400 small">Perks & Benefits</label>
+              <textarea id="place-benefits" rows="2" class="form-control bg-slate-800 border-slate-700 text-white" v-model="placementModal.benefits"></textarea>
+            </div>
+
+            <div class="mb-3">
+              <label for="place-feedback" class="form-label text-slate-400 small">Selection Feedback / Congratulatory Note</label>
+              <textarea id="place-feedback" rows="2" class="form-control bg-slate-800 border-slate-700 text-white" v-model="placementModal.feedback"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer border-0 pt-0 d-flex justify-content-end gap-2 bg-slate-900 bg-opacity-50">
+            <button type="button" class="btn btn-sm btn-outline-light border-secondary" @click="placementModal.show = false">Cancel</button>
+            <button type="button" class="btn btn-sm btn-success px-4 fw-semibold" :disabled="scheduling" @click="submitPlacement">
+              <span v-if="scheduling" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              Confirm & Place
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+      
+      <div v-if="selectedStudentProfile" class="glass-card p-4 shadow-sm mb-4 border border-slate-700 animate-fade-in">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-slate-800 pb-3">
+          <button @click="selectedStudentProfile = null" class="btn btn-sm btn-outline-light border-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+          </button>
+          <h4 class="fw-bold text-white mb-0">Detailed Candidate Dashboard: {{ selectedStudentProfile.full_name }}</h4>
+          <div></div>
+        </div>
+
+        <div class="row g-4">
+          
+          <div class="col-lg-6">
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 mb-4">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Academic & Personal Info</h5>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Full Name</span>
+                  <strong class="text-white">{{ selectedStudentProfile.full_name }}</strong>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Email Address</span>
+                  <span class="text-white">{{ selectedStudentProfile.email }}</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Phone Number</span>
+                  <span class="text-white">{{ selectedStudentProfile.phone || 'N/A' }}</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Department / Branch</span>
+                  <span class="text-white">{{ selectedStudentProfile.branch || 'N/A' }}</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">CGPA</span>
+                  <span class="text-warning fw-bold fs-5">{{ selectedStudentProfile.cgpa || 'N/A' }}</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Graduation Year</span>
+                  <span class="text-white">{{ selectedStudentProfile.graduation_year || 'N/A' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 mb-4">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Professional Summary</h5>
+              <div class="mb-3">
+                <span class="text-slate-400 small d-block mb-1.5">Key Skills & Tools</span>
+                <div class="d-flex flex-wrap gap-1.5">
+                  <span v-for="skill in (selectedStudentProfile.skills || '').split(',')" :key="skill" class="badge bg-indigo-500/20 text-indigo-300 px-2.5 py-1">
+                    {{ skill.trim() }}
+                  </span>
+                  <span v-if="!selectedStudentProfile.skills" class="text-slate-500 small">No skills specified</span>
+                </div>
+              </div>
+              <div>
+                <span class="text-slate-400 small d-block mb-1">Experience Description</span>
+                <p class="text-slate-300 bg-slate-900 bg-opacity-50 p-3 rounded border border-slate-800 small mb-0" style="white-space: pre-line;">
+                  {{ selectedStudentProfile.experience || 'No experience details specified.' }}
+                </p>
+              </div>
+            </div>
+
+            
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 mb-4">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Application Logs</h5>
+              <div class="table-responsive">
+                <table class="table table-sm text-slate-300">
+                  <thead>
+                    <tr class="text-slate-500 small">
+                      <th>Company</th>
+                      <th>Job Title</th>
+                      <th>Status</th>
+                      <th>Interview Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="app in selectedStudentProfile.applications" :key="app.application_id" class="border-secondary small">
+                      <td class="text-white fw-medium">{{ app.company_name }}</td>
+                      <td>{{ app.job_title }}</td>
+                      <td>
+                        <span :class="{'badge bg-success bg-opacity-25 text-success': ['Offer', 'Placed'].includes(app.status), 'badge bg-warning bg-opacity-25 text-warning': app.status === 'Shortlisted', 'badge bg-info bg-opacity-25 text-info': app.status === 'Interview', 'badge bg-danger bg-opacity-25 text-danger': app.status === 'Rejected', 'badge bg-secondary text-slate-300': app.status === 'Applied'}">
+                          {{ app.status }}
+                        </span>
+                      </td>
+                      <td>{{ app.interview_date || '-' }}</td>
+                    </tr>
+                    <tr v-if="selectedStudentProfile.applications.length === 0">
+                      <td colspan="4" class="text-center py-3 text-slate-500">No applications found.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Placement Offers Secured</h5>
+              <div class="table-responsive">
+                <table class="table table-sm text-slate-300">
+                  <thead>
+                    <tr class="text-slate-500 small">
+                      <th>Employer</th>
+                      <th>Designation</th>
+                      <th>CTC Package</th>
+                      <th>Joining Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="p in selectedStudentProfile.placements" :key="p.placement_id" class="border-secondary small">
+                      <td class="text-white">{{ p.company_name }}</td>
+                      <td>{{ p.position }}</td>
+                      <td class="text-success fw-bold">{{ p.salary }} LPA</td>
+                      <td>{{ p.joining_date || '-' }}</td>
+                    </tr>
+                    <tr v-if="selectedStudentProfile.placements.length === 0">
+                      <td colspan="4" class="text-center py-3 text-slate-500">No offers secured yet.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="col-lg-6">
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 h-100 d-flex flex-column" style="min-height: 700px;">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Curriculum Vitae / Resume</span>
+                <a v-if="selectedStudentProfile.resume && selectedStudentProfile.resume !== 'default.pdf'" 
+                   :href="selectedStudentProfile.resume" target="_blank" class="btn btn-xs btn-outline-info text-info small">
+                  <i class="bi bi-box-arrow-up-right me-1"></i> Open in New Tab
+                </a>
+              </h5>
+              
+              <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+                <iframe v-if="selectedStudentProfile.resume && selectedStudentProfile.resume !== 'default.pdf'" 
+                        :src="selectedStudentProfile.resume" 
+                        width="100%" 
+                        height="700px" 
+                        style="border: none; border-radius: 8px; background-color: #ffffff;">
+                </iframe>
+                <div v-else class="text-center text-slate-500 py-5">
+                  <i class="bi bi-file-earmark-pdf text-slate-600 fs-1 d-block mb-3"></i>
+                  <span>No uploaded resume document available for this student.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
   </div>
   {% endraw %}
@@ -419,15 +663,16 @@
     createApp({
       setup() {
         const currentTab = ref('overview');
+        const selectedStudentProfile = ref(null);
         const stats = ref({ drives_count: 0, applications_count: 0, shortlisted_count: 0 });
         const drives = ref([]);
         const applications = ref([]);
         const filterJobId = ref('all');
 
-        // Form fields
         const jobForm = ref({
           job_title: '',
           job_description: '',
+          eligibility_criteria: '',
           salary: null,
           application_deadline: '',
           location: '',
@@ -438,17 +683,23 @@
         const alert = ref({ text: '', type: '' });
         const submitting = ref(false);
 
-        // Modals reactive state
         const modal = ref({ show: false, title: '', app: null, status: '', feedback: '' });
-        const interviewModal = ref({ show: false, app: null, dateStr: '' });
+        const interviewModal = ref({ show: false, app: null, dateStr: '', meetLink: '', description: '' });
+        const placementModal = ref({
+          show: false,
+          app: null,
+          position: '',
+          salary: null,
+          joiningDate: '',
+          benefits: '',
+          feedback: ''
+        });
 
-        // Utility Alert
         const showAlert = (text, type = 'success') => {
           alert.value = { text, type };
           setTimeout(() => { alert.value = { text: '', type: '' }; }, 4000);
         };
 
-        // Fetch Stats
         const fetchStats = async () => {
           try {
             const res = await axios.get('/api/company/stats');
@@ -458,7 +709,6 @@
           }
         };
 
-        // Fetch Drives
         const fetchDrives = async () => {
           try {
             const res = await axios.get('/api/company/drives');
@@ -468,7 +718,6 @@
           }
         };
 
-        // Fetch Applications
         const fetchApplications = async () => {
           try {
             const res = await axios.get('/api/company/applications');
@@ -478,7 +727,6 @@
           }
         };
 
-        // Post New Job Drive
         const handlePostJob = async () => {
           if (!jobForm.value.job_title || !jobForm.value.salary || !jobForm.value.application_deadline) {
             showAlert('Job Title, Salary, and Application Deadline are required.', 'danger');
@@ -488,8 +736,7 @@
           try {
             const res = await axios.post('/api/company/drives', jobForm.value);
             showAlert(res.data.message);
-            // Reset form
-            jobForm.value = { job_title: '', job_description: '', salary: null, application_deadline: '', location: '', skills_required: '', benefits: '' };
+            jobForm.value = { job_title: '', job_description: '', eligibility_criteria: '', salary: null, application_deadline: '', location: '', skills_required: '', benefits: '' };
             currentTab.value = 'job-list';
             fetchDrives();
             fetchStats();
@@ -500,7 +747,6 @@
           }
         };
 
-        // Toggle Status
         const toggleDriveStatus = async (id) => {
           try {
             const res = await axios.post(`/api/company/drives/${id}/toggle-status`);
@@ -511,7 +757,6 @@
           }
         };
 
-        // Modal triggers
         const openActionModal = (app, status) => {
           modal.value = {
             show: true,
@@ -526,12 +771,58 @@
           interviewModal.value = {
             show: true,
             app,
-            dateStr: app.interview_date ? app.interview_date.replace(' ', 'T') : ''
+            dateStr: app.interview_date ? app.interview_date.replace(' ', 'T') : '',
+            meetLink: app.meet_link || '',
+            description: app.interview_description || ''
           };
         };
 
-        // Submit Status
+        const openPlacementModal = (app) => {
+          const today = new Date();
+          today.setDate(today.getDate() + 90);
+          const defaultJoiningDate = today.toISOString().split('T')[0];
+          
+          placementModal.value = {
+            show: true,
+            app,
+            position: app.job_title || '',
+            salary: app.drive_salary || null,
+            joiningDate: defaultJoiningDate,
+            benefits: app.drive_benefits || '',
+            feedback: ''
+          };
+        };
+
+        const submitPlacement = async () => {
+          if (scheduling.value) return;
+          const app = placementModal.value.app;
+          scheduling.value = true;
+          try {
+            const res = await axios.post(`/api/company/applications/${app.application_id}/status`, {
+              status: 'Placed',
+              position: placementModal.value.position,
+              salary: placementModal.value.salary,
+              joining_date: placementModal.value.joiningDate,
+              benefits: placementModal.value.benefits,
+              feedback: placementModal.value.feedback
+            });
+            showAlert(res.data.message);
+            placementModal.value.show = false;
+            fetchApplications();
+            fetchStats();
+          } catch (err) {
+            showAlert(err.response?.data?.message || 'Error selecting candidate.', 'danger');
+          } finally {
+            scheduling.value = false;
+          }
+        };
+
+        const actionSubmitting = ref(false);
+        const scheduling = ref(false);
+
         const submitActionStatus = async () => {
+          if (actionSubmitting.value) return;
+          actionSubmitting.value = true;
           const app = modal.value.app;
           try {
             const res = await axios.post(`/api/company/applications/${app.application_id}/status`, {
@@ -544,25 +835,32 @@
             fetchStats();
           } catch (err) {
             showAlert(err.response?.data?.message || 'Error updating status.', 'danger');
+          } finally {
+            actionSubmitting.value = false;
           }
         };
 
-        // Submit Schedule Interview
         const submitScheduleInterview = async () => {
+          if (scheduling.value) return;
           const app = interviewModal.value.app;
           if (!interviewModal.value.dateStr) {
             showAlert('Please select interview date and time.', 'danger');
             return;
           }
+          scheduling.value = true;
           try {
             const res = await axios.post(`/api/company/applications/${app.application_id}/schedule-interview`, {
-              interview_date: interviewModal.value.dateStr
+              interview_date: interviewModal.value.dateStr,
+              meet_link: interviewModal.value.meetLink,
+              interview_description: interviewModal.value.description
             });
             showAlert(res.data.message);
             interviewModal.value.show = false;
             fetchApplications();
           } catch (err) {
             showAlert(err.response?.data?.message || 'Error scheduling interview.', 'danger');
+          } finally {
+            scheduling.value = false;
           }
         };
 
@@ -610,20 +908,53 @@
           }
         };
 
-        // Computed Lists
         const filteredApplications = computed(() => {
           if (filterJobId.value === 'all') return applications.value;
           return applications.value.filter(a => a.drive_id === filterJobId.value);
         });
 
         const upcomingInterviews = computed(() => {
-          return applications.value.filter(a => a.status === 'Shortlisted' && a.interview_date);
+          return applications.value.filter(a => a.status === 'Interview' && a.interview_confirmed && a.interview_date);
         });
+
+        const openStudentProfileModal = async (studentId) => {
+          selectedStudentProfile.value = null;
+          try {
+            const res = await axios.get(`/api/common/students/${studentId}/profile`);
+            selectedStudentProfile.value = res.data;
+          } catch (err) {
+            showAlert('Failed to load candidate dashboard details.', 'danger');
+            selectedStudentProfile.value = null;
+          }
+        };
+
+        const smtpAppPassword = ref('');
+
+        const fetchSmtpPassword = async () => {
+          try {
+            const res = await axios.get('/api/user/smtp-password');
+            smtpAppPassword.value = res.data.smtp_app_password;
+          } catch (err) {
+            console.error("Failed to load SMTP settings", err);
+          }
+        };
+
+        const saveSmtpPassword = async () => {
+          try {
+            const res = await axios.post('/api/user/smtp-password', {
+              smtp_app_password: smtpAppPassword.value
+            });
+            showAlert(res.data.message);
+          } catch (err) {
+            showAlert('Failed to update SMTP credentials.', 'danger');
+          }
+        };
 
         onMounted(() => {
           fetchStats();
           fetchDrives();
           fetchApplications();
+          fetchSmtpPassword();
         });
 
         return {
@@ -637,17 +968,26 @@
           submitting,
           modal,
           interviewModal,
+          placementModal,
           filteredApplications,
           upcomingInterviews,
           handlePostJob,
           toggleDriveStatus,
           openActionModal,
           openInterviewModal,
+          openPlacementModal,
           submitActionStatus,
+          submitPlacement,
           submitScheduleInterview,
           exportState,
           triggerCsvExport,
-          handleLogout
+          handleLogout,
+          selectedStudentProfile,
+          openStudentProfileModal,
+          smtpAppPassword,
+          saveSmtpPassword,
+          scheduling,
+          actionSubmitting
         };
       }
     }).mount('#app');

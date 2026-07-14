@@ -1,0 +1,466 @@
+openapi: 3.0.0
+info:
+  title: Campus Placement Portal V2 API
+  description: API definition for Campus Placement Portal application.
+  version: 2.0.0
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+paths:
+  /login:
+    post:
+      summary: User Login
+      description: Authenticates a user and starts a session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - role
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [Student, Company, Admin]
+      responses:
+        '200':
+          description: Login successful
+        '401':
+          description: Invalid email or password
+        '400':
+          description: Missing email, password, or role
+
+  /register/student:
+    post:
+      summary: Student Registration
+      description: Registers a new student candidate with profile details and resume file.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - email
+                - full_name
+                - password
+              properties:
+                email:
+                  type: string
+                full_name:
+                  type: string
+                password:
+                  type: string
+                phone:
+                  type: string
+                branch:
+                  type: string
+                cgpa:
+                  type: number
+                  minimum: 0
+                  maximum: 10
+                graduation_year:
+                  type: integer
+                skills:
+                  type: string
+                experience:
+                  type: string
+                resume_file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Student successfully registered
+        '400':
+          description: Email already exists or invalid data
+
+  /register/company:
+    post:
+      summary: Company Recruiter Registration
+      description: Registers a new company recruiter profile, requiring admin approval.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - company_name
+                - password
+                - hr_contact
+              properties:
+                email:
+                  type: string
+                company_name:
+                  type: string
+                password:
+                  type: string
+                hr_contact:
+                  type: string
+                website:
+                  type: string
+                industry:
+                  type: string
+                location:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Company registered, pending admin review
+        '400':
+          description: Email already exists
+
+  /logout:
+    get:
+      summary: User Logout
+      description: Terminates the current authenticated session.
+      responses:
+        '302':
+          description: Redirects to login home page
+
+  /api/student/profile:
+    get:
+      summary: Get Student Profile
+      description: Fetches current authenticated student's profile information.
+      responses:
+        '200':
+          description: Profile retrieved successfully
+        '403':
+          description: Access denied
+    post:
+      summary: Update Student Profile
+      description: Updates student academic fields, skills, and resume files.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                branch:
+                  type: string
+                cgpa:
+                  type: number
+                graduation_year:
+                  type: integer
+                skills:
+                  type: string
+                experience:
+                  type: string
+                resume_file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Profile successfully updated
+
+  /api/student/drives:
+    get:
+      summary: List Approved Placement Drives
+      description: Fetches approved and active placement drives. Uses Redis caching policies.
+      responses:
+        '200':
+          description: Drives list retrieved successfully
+
+  /api/student/drives/{drive_id}/apply:
+    post:
+      summary: Apply to Placement Drive
+      description: Submits a job application for a specific drive. Enforces duplicate submission prevention.
+      parameters:
+        - name: drive_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Application successfully submitted
+        '400':
+          description: Already applied or ineligible candidate
+
+  /api/company/stats:
+    get:
+      summary: Recruiter Metrics Stats
+      description: Fetches candidate counts, scheduled interview totals, and placements.
+      responses:
+        '200':
+          description: Stats retrieved successfully
+
+  /api/company/drives:
+    get:
+      summary: List Recruiter Job Postings
+      description: Lists placement drives created by the authenticated company.
+      responses:
+        '200':
+          description: Job list retrieved
+    post:
+      summary: Create Placement Drive
+      description: Posts a new job drive, pending admin approval.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_title
+                - salary
+                - application_deadline
+              properties:
+                job_title:
+                  type: string
+                job_description:
+                  type: string
+                salary:
+                  type: number
+                application_deadline:
+                  type: string
+                  format: date-time
+                location:
+                  type: string
+                skills_required:
+                  type: string
+                eligibility_criteria:
+                  type: string
+                benefits:
+                  type: string
+      responses:
+        '201':
+          description: Drive successfully created, pending admin approval
+
+  /api/company/applications:
+    get:
+      summary: List Drive Applicants
+      description: Fetches applications submitted to recruiter's active drives.
+      responses:
+        '200':
+          description: Applicants list retrieved
+
+  /api/company/applications/{application_id}/status:
+    post:
+      summary: Update Candidate Status
+      description: Transitions applicant status (Shortlisted, Placed, Rejected). Automatically generates PDF offer letters for placements.
+      parameters:
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [Shortlisted, Placed, Rejected]
+                position:
+                  type: string
+                salary:
+                  type: number
+                joining_date:
+                  type: string
+                  format: date
+                benefits:
+                  type: string
+                feedback:
+                  type: string
+      responses:
+        '200':
+          description: Candidate status updated successfully
+
+  /api/company/applications/{application_id}/schedule-interview:
+    post:
+      summary: Schedule Candidate Interview
+      description: Invites candidate to an interview slot. Sends SMTP email reminder.
+      parameters:
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - interview_date
+              properties:
+                interview_date:
+                  type: string
+                  format: date-time
+                meet_link:
+                  type: string
+                interview_description:
+                  type: string
+      responses:
+        '200':
+          description: Interview successfully scheduled
+
+  /api/admin/stats:
+    get:
+      summary: Admin Dashboard Overview Stats
+      description: Fetches system aggregates (counts of students, companies, placements).
+      responses:
+        '200':
+          description: Stats retrieved successfully
+
+  /api/admin/companies:
+    get:
+      summary: List Registered Recruiter Profiles
+      description: Lists company recruiters for approval or moderation.
+      responses:
+        '200':
+          description: Recruiter profiles retrieved
+
+  /api/admin/companies/{company_id}/approve:
+    post:
+      summary: Approve Recruiter Profile
+      description: Verifies and approves a company recruiter registration.
+      parameters:
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Company profile approved
+
+  /api/admin/companies/{company_id}/blacklist:
+    post:
+      summary: Toggle Company Blacklist
+      description: Toggles recruiter blacklisted status, revoking drives access.
+      parameters:
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Blacklist status updated
+
+  /api/admin/students:
+    get:
+      summary: List Student Profiles
+      description: Lists registered candidates.
+      responses:
+        '200':
+          description: Candidate list retrieved
+
+  /api/admin/students/{student_id}/blacklist:
+    post:
+      summary: Toggle Student Blacklist
+      description: Restricts student candidate from logging in or applying.
+      parameters:
+        - name: student_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Blacklist status updated
+
+  /api/admin/drives:
+    get:
+      summary: List Proposed Drives
+      description: Returns placement drives requiring administrator validation.
+      responses:
+        '200':
+          description: Drives list retrieved successfully
+
+  /api/admin/drives/{drive_id}/approve:
+    post:
+      summary: Approve Placement Drive
+      description: Approves job posting drive. Clears cached drives dynamically in Redis.
+      parameters:
+        - name: drive_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Drive successfully approved
+
+  /api/admin/reports:
+    get:
+      summary: List Recruitment Analytics PDFs
+      description: Lists generated daily, weekly, and monthly PDF reports in static storage.
+      responses:
+        '200':
+          description: PDF reports list retrieved successfully
+
+  /api/user/smtp-password:
+    get:
+      summary: Check Saved App Password
+      description: Verifies if current user has saved SMTP App credentials.
+      responses:
+        '200':
+          description: Password check status
+    post:
+      summary: Save SMTP App Password
+      description: Saves custom app key for SMTP email notifications.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - smtp_app_password
+              properties:
+                smtp_app_password:
+                  type: string
+      responses:
+        '200':
+          description: Settings successfully saved
+
+  /api/common/export-csv:
+    post:
+      summary: Trigger History CSV Export
+      description: Starts an asynchronous CSV export process via Celery.
+      responses:
+        '202':
+          description: CSV Export job submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+
+  /api/common/export-status/{task_id}:
+    get:
+      summary: Get CSV Export Status
+      description: Audits Celery task status for CSV completion, returning download URL.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: CSV Export progress and status

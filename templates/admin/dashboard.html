@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - Placement Portal</title>
-  <!-- Google Fonts Inter -->
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Bootstrap 5 CSS CDN -->
+  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Bootstrap Icons CDN -->
+  
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
-  <!-- Vue 3 CDN -->
+  
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <!-- Axios CDN -->
+  
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <style>
     .nav-tabs .nav-link {
@@ -46,7 +46,7 @@
 <body>
   {% raw %}
   <div id="app" class="container-fluid py-4">
-    <!-- Navbar / Header -->
+    
     <header class="d-flex flex-column flex-md-row justify-content-between align-items-center pb-4 mb-4 border-bottom border-secondary">
       <div class="d-flex align-items-center gap-3">
         <div class="bg-indigo-500/20 text-indigo-300 p-2.5 rounded-3">
@@ -62,13 +62,13 @@
       </button>
     </header>
 
-    <!-- Global Alerts -->
+    
     <div v-if="adminAlert.text" :class="['alert', 'alert-' + adminAlert.type, 'border-0', 'py-3', 'mb-4', 'text-center', 'small']" role="alert">
       {{ adminAlert.text }}
     </div>
 
-    <!-- Main Navigation Tabs -->
-    <ul class="nav nav-tabs border-secondary mb-4">
+    
+    <ul v-if="!selectedStudentProfile && !selectedCompanyProfile" class="nav nav-tabs border-secondary mb-4">
       <li class="nav-item">
         <a class="nav-link" :class="{ active: currentTab === 'overview' }" href="#" @click.prevent="currentTab = 'overview'">
           <i class="bi bi-grid-fill me-2"></i> Overview
@@ -94,15 +94,20 @@
           <i class="bi bi-file-earmark-text-fill me-2"></i> Applications
         </a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: currentTab === 'reports' }" href="#" @click.prevent="currentTab = 'reports'">
+          <i class="bi bi-file-earmark-bar-graph-fill me-2"></i> Placement Reports
+        </a>
+      </li>
     </ul>
 
-    <!-- TAB CONTENTS -->
-    <div class="tab-content">
+    
+    <div v-if="!selectedStudentProfile && !selectedCompanyProfile" class="tab-content">
       
-      <!-- OVERVIEW TAB -->
+      
       <div v-if="currentTab === 'overview'">
         <div class="row">
-          <!-- Active Students Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('students', 'active')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -114,7 +119,7 @@
               </div>
             </div>
           </div>
-          <!-- Blacklisted Students Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('students', 'blacklisted')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -126,7 +131,7 @@
               </div>
             </div>
           </div>
-          <!-- Active Companies Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('companies', 'approved')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -138,7 +143,7 @@
               </div>
             </div>
           </div>
-          <!-- Pending Companies Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('companies', 'pending')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -150,7 +155,7 @@
               </div>
             </div>
           </div>
-          <!-- Blacklisted Companies Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('companies', 'blacklisted')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -162,7 +167,7 @@
               </div>
             </div>
           </div>
-          <!-- Approved Placement Drives Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('drives', 'Approved')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -174,7 +179,7 @@
               </div>
             </div>
           </div>
-          <!-- Pending Drives Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('drives', 'Pending')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -186,7 +191,7 @@
               </div>
             </div>
           </div>
-          <!-- Rejected Drives Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('drives', 'Rejected')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -198,7 +203,7 @@
               </div>
             </div>
           </div>
-          <!-- Total Applications Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('applications', 'all')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -210,7 +215,7 @@
               </div>
             </div>
           </div>
-          <!-- Rejected Applications Card -->
+          
           <div class="col-md-3 mb-4" @click="navigateToTab('applications', 'Rejected')">
             <div class="glass-card p-4 hover-scale shadow-sm">
               <div class="d-flex justify-content-between align-items-start">
@@ -225,13 +230,13 @@
         </div>
       </div>
 
-      <!-- STUDENTS TAB -->
+      
       <div v-if="currentTab === 'students'">
         <div class="glass-card p-4 shadow-sm mb-4">
           <div class="row align-items-center g-3">
             <div class="col-md-8">
               <label class="form-label text-slate-300 small">Search Student</label>
-              <input type="text" class="form-control" v-model="studentSearchVal" @input="debouncedFetchStudents" placeholder="Search by Name, Email/ID, or Phone...">
+              <input type="text" class="form-control" v-model="studentSearchVal" @input="debouncedFetchStudents">
             </div>
             <div class="col-md-4">
               <label class="form-label text-slate-300 small">Filter Status</label>
@@ -260,9 +265,11 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="student in filteredStudents" :key="student.student_id" class="border-secondary">
+                <tr v-for="student in filteredStudents" :key="student.student_id" class="border-secondary cursor-pointer hover-row" @click="openStudentProfileModal(student.student_id)">
                   <td>{{ student.student_id }}</td>
-                  <td class="text-white fw-medium">{{ student.full_name }}</td>
+                  <td class="text-white fw-medium">
+                    {{ student.full_name }}
+                  </td>
                   <td>{{ student.email }}</td>
                   <td>{{ student.phone || '-' }}</td>
                   <td>
@@ -275,13 +282,13 @@
                   </td>
                   <td>
                     <div class="d-flex gap-2">
-                      <button v-if="!student.is_blacklisted" @click="toggleStudentBlacklist(student.student_id)" class="btn btn-sm btn-outline-warning" title="Blacklist Student">
+                      <button v-if="!student.is_blacklisted" @click.stop="toggleStudentBlacklist(student.student_id)" class="btn btn-sm btn-outline-warning" title="Blacklist Student">
                         <i class="bi bi-slash-circle-fill"></i> Blacklist
                       </button>
                       <span v-else class="text-danger small fw-semibold py-1 d-inline-flex align-items-center gap-1">
                         <i class="bi bi-slash-circle-fill"></i> Permanent Blacklist
                       </span>
-                      <button @click="removeStudent(student.student_id)" class="btn btn-sm btn-outline-danger" title="Delete Profile">
+                      <button @click.stop="removeStudent(student.student_id)" class="btn btn-sm btn-outline-danger" title="Delete Profile">
                         <i class="bi bi-trash-fill"></i>
                       </button>
                     </div>
@@ -296,14 +303,14 @@
         </div>
       </div>
 
-      <!-- COMPANIES TAB -->
+      
       <div v-if="currentTab === 'companies'">
-        <!-- Search & Custom Filters -->
+        
         <div class="glass-card p-4 shadow-sm mb-4">
           <div class="row align-items-center g-3">
             <div class="col-md-8">
               <label class="form-label text-slate-300 small">Search Company</label>
-              <input type="text" class="form-control" v-model="companySearchVal" @input="debouncedFetchCompanies" placeholder="Search by Company Name or Industry...">
+              <input type="text" class="form-control" v-model="companySearchVal" @input="debouncedFetchCompanies">
             </div>
             <div class="col-md-4">
               <label class="form-label text-slate-300 small">Filter Status</label>
@@ -317,7 +324,7 @@
           </div>
         </div>
 
-        <!-- Pending Registrations Panel (Auto-hides if none) -->
+        
         <div v-if="pendingCompanies.length > 0" class="glass-card p-4 shadow-sm mb-4 border-warning border-opacity-20">
           <h5 class="fw-bold text-warning mb-3">
             <i class="bi bi-exclamation-circle-fill me-1"></i> Pending Company Approvals
@@ -365,7 +372,7 @@
           </div>
         </div>
 
-        <!-- Approved / Blacklisted Companies -->
+        
         <div class="glass-card p-4 shadow-sm">
           <h5 class="fw-bold text-white mb-3">Active & Managed Recruiters</h5>
           <div class="table-responsive">
@@ -381,7 +388,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="company in approvedCompanies" :key="company.company_id" class="border-secondary">
+                <tr v-for="company in approvedCompanies" :key="company.company_id" class="border-secondary cursor-pointer hover-row" @click="openCompanyProfile(company.company_id)">
                   <td class="text-white fw-bold">{{ company.company_name }}</td>
                   <td>
                     <span class="d-block fw-semibold text-slate-300">{{ company.hr_contact }}</span>
@@ -396,13 +403,13 @@
                   </td>
                   <td>
                     <div class="d-flex gap-2">
-                      <button v-if="!company.is_blacklisted" @click="toggleCompanyBlacklist(company.company_id)" class="btn btn-sm btn-outline-warning" title="Blacklist Company">
+                      <button v-if="!company.is_blacklisted" @click.stop="toggleCompanyBlacklist(company.company_id)" class="btn btn-sm btn-outline-warning" title="Blacklist Company">
                         <i class="bi bi-slash-circle-fill"></i> Blacklist
                       </button>
                       <span v-else class="text-danger small fw-semibold py-1 d-inline-flex align-items-center gap-1">
                         <i class="bi bi-slash-circle-fill"></i> Permanent Blacklist
                       </span>
-                      <button @click="removeCompany(company.company_id)" class="btn btn-sm btn-outline-danger" title="Delete Profile">
+                      <button @click.stop="removeCompany(company.company_id)" class="btn btn-sm btn-outline-danger" title="Delete Profile">
                         <i class="bi bi-trash-fill"></i>
                       </button>
                     </div>
@@ -417,9 +424,9 @@
         </div>
       </div>
 
-      <!-- PLACEMENT DRIVES TAB -->
+      
       <div v-if="currentTab === 'drives'">
-        <!-- Filter Bar -->
+        
         <div class="glass-card p-4 shadow-sm mb-4">
           <div class="row align-items-center">
             <div class="col-md-4">
@@ -434,7 +441,7 @@
           </div>
         </div>
 
-        <!-- Pending Approval Placement Drives Panel (Auto-hides if none) -->
+        
         <div v-if="pendingDrives.length > 0" class="glass-card p-4 shadow-sm mb-4 border-warning border-opacity-20">
           <h5 class="fw-bold text-warning mb-3">
             <i class="bi bi-exclamation-circle-fill me-1"></i> Pending Drive Proposals
@@ -474,7 +481,7 @@
           </div>
         </div>
 
-        <!-- Approved / Rejected Drives -->
+        
         <div class="glass-card p-4 shadow-sm">
           <h5 class="fw-bold text-white mb-3">Job Postings & Active Drives</h5>
           <div class="table-responsive">
@@ -491,7 +498,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="drive in approvedDrives" :key="drive.drive_id" class="border-secondary">
+                <tr v-for="drive in approvedDrives" :key="drive.drive_id" class="border-secondary cursor-pointer hover-row" @click="openCompanyProfile(drive.company_id)">
                   <td class="text-white fw-bold">{{ drive.company_name }}</td>
                   <td class="text-white fw-semibold">{{ drive.job_title }}</td>
                   <td>{{ drive.salary || '-' }}</td>
@@ -503,7 +510,7 @@
                     <span v-else class="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1">Pending</span>
                   </td>
                   <td>
-                    <button @click="removeDrive(drive.drive_id)" class="btn btn-sm btn-outline-danger" title="Remove Job Posting">
+                    <button @click.stop="removeDrive(drive.drive_id)" class="btn btn-sm btn-outline-danger" title="Remove Job Posting">
                       <i class="bi bi-trash-fill"></i> Delete
                     </button>
                   </td>
@@ -517,9 +524,9 @@
         </div>
       </div>
 
-      <!-- APPLICATIONS TAB -->
+      
       <div v-if="currentTab === 'applications'">
-        <!-- Filter Bar -->
+        
         <div class="glass-card p-4 shadow-sm mb-4">
           <div class="row align-items-center">
             <div class="col-md-4">
@@ -534,7 +541,7 @@
           </div>
         </div>
 
-        <!-- Applications Table -->
+        
         <div class="glass-card p-4 shadow-sm">
           <h5 class="fw-bold text-white mb-3">Student Job Applications</h5>
           <div class="table-responsive">
@@ -551,7 +558,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="appln in approvedApplications" :key="appln.application_id" class="border-secondary">
+                <tr v-for="appln in approvedApplications" :key="appln.application_id" class="border-secondary cursor-pointer hover-row" @click="openStudentProfileModal(appln.student_id)">
                   <td>{{ appln.application_id }}</td>
                   <td>
                     <span class="d-block fw-semibold text-white">{{ appln.student_name }}</span>
@@ -569,7 +576,7 @@
                     <span v-else class="badge bg-indigo-500/20 text-indigo-300 px-2.5 py-1">Applied</span>
                   </td>
                   <td>
-                    <button @click="removeApplication(appln.application_id)" class="btn btn-sm btn-outline-danger" title="Remove Application">
+                    <button @click.stop="removeApplication(appln.application_id)" class="btn btn-sm btn-outline-danger" title="Remove Application">
                       <i class="bi bi-trash-fill"></i> Delete
                     </button>
                   </td>
@@ -583,7 +590,348 @@
         </div>
       </div>
 
+      
+      <div v-if="currentTab === 'reports'">
+        <div class="glass-card p-4 shadow-sm mb-4 border-warning border-opacity-20 d-flex justify-content-between align-items-center">
+          <div>
+            <h5 class="fw-bold text-white mb-1"><i class="bi bi-clock-history text-indigo-400 me-2"></i>Trigger Placement Reports</h5>
+            <p class="text-slate-400 small mb-0">Generate monthly recruitment stats and analytics reports for all approved companies.</p>
+          </div>
+          <button @click="triggerMonthlyReportsJob" class="btn btn-sm btn-indigo text-white bg-indigo-600 hover-indigo shadow-sm d-flex align-items-center gap-1.5" :disabled="reportsLoading">
+            <span v-if="reportsLoading" class="spinner-border spinner-border-sm" role="status"></span>
+            <i v-else class="bi bi-gear-fill"></i>
+            Run Monthly Job
+          </button>
+        </div>
+
+        <div class="glass-card p-4 shadow-sm">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold text-white mb-0">Generated Recruitment Reports</h5>
+            <button @click="fetchGeneratedReports" class="btn btn-sm btn-outline-light border-secondary">
+              <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+          </div>
+          
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" style="color: #cbd5e1;">
+              <thead>
+                <tr class="border-secondary text-slate-400">
+                  <th>Report Type</th>
+                  <th>Company Name</th>
+                  <th>Filename</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="report in generatedReports" :key="report.filename" class="border-secondary">
+                  <td>
+                    <span :class="{'badge bg-info bg-opacity-25 text-info': report.type === 'Daily', 'badge bg-warning bg-opacity-25 text-warning': report.type === 'Weekly', 'badge bg-success bg-opacity-25 text-success': report.type === 'Monthly'}">
+                      {{ report.type }} Report
+                    </span>
+                  </td>
+                  <td class="text-white fw-bold">{{ report.company_name }}</td>
+                  <td class="text-slate-300 font-monospace small">{{ report.filename }}</td>
+                  <td>
+                    <a :href="report.url" target="_blank" class="btn btn-sm btn-outline-info">
+                      <i class="bi bi-download me-1"></i> Download PDF
+                    </a>
+                  </td>
+                </tr>
+                <tr v-if="generatedReports.length === 0">
+                  <td colspan="4" class="text-center py-4 text-slate-500">No reports generated yet. Click "Run Monthly Job" above to trigger.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
+
+      
+      <div v-if="selectedStudentProfile" class="glass-card p-4 shadow-sm mb-4 border border-slate-700 animate-fade-in">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-slate-800 pb-3">
+          <button @click="selectedStudentProfile = null" class="btn btn-sm btn-outline-light border-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+          </button>
+          <h4 class="fw-bold text-white mb-0">Detailed Candidate Dashboard: {{ selectedStudentProfile.full_name }}</h4>
+          <div></div>
+        </div>
+
+        <div class="row g-4">
+          
+          <div class="col-lg-6">
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 mb-4">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Academic & Personal Info</h5>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Full Name</span>
+                  <strong class="text-white">{{ selectedStudentProfile.full_name }}</strong>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Email Address</span>
+                  <span class="text-white">{{ selectedStudentProfile.email }}</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Phone Number</span>
+                  <span class="text-white">{{ selectedStudentProfile.phone || 'N/A' }}</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Department / Branch</span>
+                  <span class="text-white">{{ selectedStudentProfile.branch || 'N/A' }}</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">CGPA</span>
+                  <span class="text-warning fw-bold fs-5">{{ selectedStudentProfile.cgpa || 'N/A' }}</span>
+                </div>
+                <div class="col-md-6">
+                  <span class="text-slate-400 small d-block">Graduation Year</span>
+                  <span class="text-white">{{ selectedStudentProfile.graduation_year || 'N/A' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 mb-4">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Professional Summary</h5>
+              <div class="mb-3">
+                <span class="text-slate-400 small d-block mb-1.5">Key Skills & Tools</span>
+                <div class="d-flex flex-wrap gap-1.5">
+                  <span v-for="skill in (selectedStudentProfile.skills || '').split(',')" :key="skill" class="badge bg-indigo-500/20 text-indigo-300 px-2.5 py-1">
+                    {{ skill.trim() }}
+                  </span>
+                  <span v-if="!selectedStudentProfile.skills" class="text-slate-500 small">No skills specified</span>
+                </div>
+              </div>
+              <div>
+                <span class="text-slate-400 small d-block mb-1">Experience Description</span>
+                <p class="text-slate-300 bg-slate-900 bg-opacity-50 p-3 rounded border border-slate-800 small mb-0" style="white-space: pre-line;">
+                  {{ selectedStudentProfile.experience || 'No experience details specified.' }}
+                </p>
+              </div>
+            </div>
+
+            
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 mb-4">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Application Logs</h5>
+              <div class="table-responsive">
+                <table class="table table-sm text-slate-300">
+                  <thead>
+                    <tr class="text-slate-500 small">
+                      <th>Company</th>
+                      <th>Job Title</th>
+                      <th>Status</th>
+                      <th>Interview Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="app in selectedStudentProfile.applications" :key="app.application_id" class="border-secondary small">
+                      <td class="text-white fw-medium">{{ app.company_name }}</td>
+                      <td>{{ app.job_title }}</td>
+                      <td>
+                        <span :class="{'badge bg-success bg-opacity-25 text-success': ['Offer', 'Placed'].includes(app.status), 'badge bg-warning bg-opacity-25 text-warning': app.status === 'Shortlisted', 'badge bg-info bg-opacity-25 text-info': app.status === 'Interview', 'badge bg-danger bg-opacity-25 text-danger': app.status === 'Rejected', 'badge bg-secondary text-slate-300': app.status === 'Applied'}">
+                          {{ app.status }}
+                        </span>
+                      </td>
+                      <td>{{ app.interview_date || '-' }}</td>
+                    </tr>
+                    <tr v-if="selectedStudentProfile.applications.length === 0">
+                      <td colspan="4" class="text-center py-3 text-slate-500">No applications found.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Placement Offers Secured</h5>
+              <div class="table-responsive">
+                <table class="table table-sm text-slate-300">
+                  <thead>
+                    <tr class="text-slate-500 small">
+                      <th>Employer</th>
+                      <th>Designation</th>
+                      <th>CTC Package</th>
+                      <th>Joining Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="p in selectedStudentProfile.placements" :key="p.placement_id" class="border-secondary small">
+                      <td class="text-white">{{ p.company_name }}</td>
+                      <td>{{ p.position }}</td>
+                      <td class="text-success fw-bold">{{ p.salary }} LPA</td>
+                      <td>{{ p.joining_date || '-' }}</td>
+                    </tr>
+                    <tr v-if="selectedStudentProfile.placements.length === 0">
+                      <td colspan="4" class="text-center py-3 text-slate-500">No offers secured yet.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="col-lg-6">
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 h-100 d-flex flex-column" style="min-height: 700px;">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Curriculum Vitae / Resume</span>
+                <a v-if="selectedStudentProfile.resume && selectedStudentProfile.resume !== 'default.pdf'" 
+                   :href="selectedStudentProfile.resume" target="_blank" class="btn btn-xs btn-outline-info text-info small">
+                  <i class="bi bi-box-arrow-up-right me-1"></i> Open in New Tab
+                </a>
+              </h5>
+              
+              <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+                <iframe v-if="selectedStudentProfile.resume && selectedStudentProfile.resume !== 'default.pdf'" 
+                        :src="selectedStudentProfile.resume" 
+                        width="100%" 
+                        height="700px" 
+                        style="border: none; border-radius: 8px; background-color: #ffffff;">
+                </iframe>
+                <div v-else class="text-center text-slate-500 py-5">
+                  <i class="bi bi-file-earmark-pdf text-slate-600 fs-1 d-block mb-3"></i>
+                  <span>No uploaded resume document available for this student.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div v-if="selectedCompanyProfile" class="glass-card p-4 shadow-sm mb-4 border border-slate-700 animate-fade-in">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-slate-800 pb-3">
+          <button @click="selectedCompanyProfile = null" class="btn btn-sm btn-outline-light border-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+          </button>
+          <h4 class="fw-bold text-white mb-0">Detailed Recruiter Dashboard: {{ selectedCompanyProfile.company_name }}</h4>
+          <div></div>
+        </div>
+
+        <div class="row g-4">
+          
+          <div class="col-lg-4">
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 mb-4">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Corporate Profile</h5>
+              <div class="mb-3">
+                <span class="text-slate-400 small d-block">Company Name</span>
+                <strong class="text-white fs-5">{{ selectedCompanyProfile.company_name }}</strong>
+              </div>
+              <div class="mb-3">
+                <span class="text-slate-400 small d-block">Industry Sector</span>
+                <span class="text-white">{{ selectedCompanyProfile.sector || 'N/A' }}</span>
+              </div>
+              <div class="mb-3">
+                <span class="text-slate-400 small d-block">Careers Website</span>
+                <a v-if="selectedCompanyProfile.website" :href="selectedCompanyProfile.website" target="_blank" class="text-indigo-400 text-decoration-none">
+                  <i class="bi bi-box-arrow-up-right me-1"></i> Visit Website
+                </a>
+                <span v-else class="text-slate-500">N/A</span>
+              </div>
+              <div class="mb-3">
+                <span class="text-slate-400 small d-block">HQ Location / Office</span>
+                <span class="text-white">{{ selectedCompanyProfile.location || 'N/A' }}</span>
+              </div>
+              <div class="mb-3">
+                <span class="text-slate-400 small d-block">Account Status</span>
+                <span v-if="selectedCompanyProfile.is_blacklisted" class="badge bg-danger bg-opacity-25 text-danger">Blacklisted</span>
+                <span v-else class="badge bg-success bg-opacity-25 text-success">Active</span>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800 mb-4">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Corporate Description</h5>
+              <p class="text-slate-300 small mb-0" style="white-space: pre-line;">
+                {{ selectedCompanyProfile.description || 'No corporate description details provided.' }}
+              </p>
+            </div>
+
+            
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800">
+              <h5 class="fw-bold text-white mb-3 border-bottom border-slate-800 pb-2">Hires & Offers Secured</h5>
+              <div class="table-responsive">
+                <table class="table table-sm text-slate-300">
+                  <thead>
+                    <tr class="text-slate-500 small">
+                      <th>Student</th>
+                      <th>Designation</th>
+                      <th>CTC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="p in selectedCompanyProfile.placements" :key="p.placement_id" class="border-secondary small">
+                      <td class="text-white">{{ p.student_name }}</td>
+                      <td>{{ p.position }}</td>
+                      <td class="text-success fw-bold">{{ p.salary }} LPA</td>
+                    </tr>
+                    <tr v-if="selectedCompanyProfile.placements.length === 0">
+                      <td colspan="3" class="text-center py-3 text-slate-500">No placements confirmed yet.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="col-lg-8">
+            <div class="glass-card p-4 bg-slate-900 bg-opacity-40 border border-slate-800">
+              <h5 class="fw-bold text-white mb-4 border-bottom border-slate-800 pb-2">Placement Drives and Applicant Tracking</h5>
+              
+              <div v-for="drive in selectedCompanyProfile.placement_drives" :key="drive.drive_id" class="mb-4 bg-slate-900 bg-opacity-60 p-4 rounded border border-slate-800">
+                <div class="d-flex justify-content-between align-items-start mb-3 border-bottom border-slate-800 pb-2">
+                  <div>
+                    <h6 class="fw-bold text-white mb-1">{{ drive.job_title }}</h6>
+                    <span class="small text-slate-400"><i class="bi bi-geo-alt me-1"></i>{{ drive.location || 'N/A' }} | <i class="bi bi-cash me-1"></i>{{ drive.salary }} LPA</span>
+                  </div>
+                  <span :class="{'badge bg-success bg-opacity-25 text-success': drive.status === 'Approved' || drive.status === 'Active', 'badge bg-warning bg-opacity-25 text-warning': drive.status === 'Pending', 'badge bg-danger bg-opacity-25 text-danger': drive.status === 'Closed' || drive.status === 'Rejected'}">
+                    {{ drive.status }}
+                  </span>
+                </div>
+
+                
+                <div class="table-responsive">
+                  <table class="table table-sm table-hover text-slate-300">
+                    <thead>
+                      <tr class="text-slate-500 small">
+                        <th>Candidate Name</th>
+                        <th>CGPA</th>
+                        <th>Applied On</th>
+                        <th>Status</th>
+                        <th>Scheduled Interview</th>
+                        <th>Recruiter Feedback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="app in drive.applications" :key="app.application_id" class="border-secondary small">
+                        <td class="text-white">{{ app.student_name }}</td>
+                        <td class="text-warning fw-medium">{{ app.student_cgpa || '-' }}</td>
+                        <td>{{ app.application_date }}</td>
+                        <td>
+                          <span :class="{'badge bg-success bg-opacity-25 text-success': ['Offer', 'Placed'].includes(app.status), 'badge bg-warning bg-opacity-25 text-warning': app.status === 'Shortlisted', 'badge bg-info bg-opacity-25 text-info': app.status === 'Interview', 'badge bg-danger bg-opacity-25 text-danger': app.status === 'Rejected', 'badge bg-secondary text-slate-300': app.status === 'Applied'}">
+                            {{ app.status }}
+                          </span>
+                        </td>
+                        <td class="font-monospace text-info">{{ app.interview_date || '-' }}</td>
+                        <td class="italic text-slate-400">{{ app.feedback || '-' }}</td>
+                      </tr>
+                      <tr v-if="drive.applications.length === 0">
+                        <td colspan="6" class="text-center py-3 text-slate-500">No applications received for this drive.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div v-if="selectedCompanyProfile.placement_drives.length === 0" class="text-center text-slate-500 py-5">
+                <i class="bi bi-megaphone text-slate-700 fs-1 d-block mb-3"></i>
+                <span>No placement drives created by this company yet.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
   </div>
   {% endraw %}
 
@@ -592,6 +940,10 @@
     createApp({
       setup() {
         const currentTab = ref('overview');
+        const selectedStudentProfile = ref(null);
+        const selectedCompanyProfile = ref(null);
+        const generatedReports = ref([]);
+        const reportsLoading = ref(false);
         const adminStatsData = ref({
           active_students_count: 0,
           blacklisted_students_count: 0,
@@ -610,11 +962,9 @@
         const adminDrives = ref([]);
         const adminApplications = ref([]);
 
-        // Search inputs
         const studentSearchVal = ref('');
         const companySearchVal = ref('');
 
-        // Tab filters
         const studentFilter = ref('all');
         const companyFilter = ref('all');
         const driveFilter = ref('all');
@@ -622,13 +972,11 @@
 
         const adminAlert = ref({ text: '', type: '' });
 
-        // Utility: Show Alert
         const showAlert = (text, type = 'success') => {
           adminAlert.value = { text, type };
           setTimeout(() => { adminAlert.value = { text: '', type: '' }; }, 4000);
         };
 
-        // Fetch Stats
         const fetchStats = async () => {
           try {
             const res = await axios.get('/api/admin/stats');
@@ -638,7 +986,6 @@
           }
         };
 
-        // Fetch Students
         const fetchStudents = async () => {
           try {
             const res = await axios.get('/api/admin/students', {
@@ -650,7 +997,6 @@
           }
         };
 
-        // Fetch Companies
         const fetchCompanies = async () => {
           try {
             const res = await axios.get('/api/admin/companies', {
@@ -662,7 +1008,6 @@
           }
         };
 
-        // Fetch Job Drives
         const fetchDrives = async () => {
           try {
             const res = await axios.get('/api/admin/drives');
@@ -672,7 +1017,6 @@
           }
         };
 
-        // Fetch Applications
         const fetchApplications = async () => {
           try {
             const res = await axios.get('/api/admin/applications');
@@ -682,7 +1026,6 @@
           }
         };
 
-        // Debounce handles
         let studentTimeout = null;
         const debouncedFetchStudents = () => {
           clearTimeout(studentTimeout);
@@ -695,7 +1038,6 @@
           companyTimeout = setTimeout(fetchCompanies, 300);
         };
 
-        // Clickable card navigation
         const navigateToTab = (tab, filterVal) => {
           currentTab.value = tab;
           if (tab === 'students') {
@@ -709,7 +1051,6 @@
           }
         };
 
-        // Student Actions
         const toggleStudentBlacklist = async (id) => {
           try {
             const res = await axios.post(`/api/admin/students/${id}/toggle-blacklist`);
@@ -733,7 +1074,6 @@
           }
         };
 
-        // Company Actions
         const approveCompany = async (id) => {
           try {
             const res = await axios.post(`/api/admin/companies/${id}/approve`);
@@ -779,7 +1119,6 @@
           }
         };
 
-        // Drive Actions
         const approveDrive = async (id) => {
           try {
             const res = await axios.post(`/api/admin/drives/${id}/approve`);
@@ -814,7 +1153,6 @@
           }
         };
 
-        // Application Actions
         const removeApplication = async (id) => {
           if (!confirm('Are you sure you want to permanently remove this job application record?')) return;
           try {
@@ -836,7 +1174,6 @@
           }
         };
 
-        // Computed Filters for Companies section
         const pendingCompanies = computed(() => {
           return adminCompanies.value.filter(c => c.approval_status === 'Pending');
         });
@@ -845,7 +1182,6 @@
           return adminDrives.value.filter(d => d.status === 'Pending');
         });
 
-        // Filtered Lists depending on dropdown filters
         const filteredStudents = computed(() => {
           if (studentFilter.value === 'blacklisted') {
             return adminStudents.value.filter(s => s.is_blacklisted);
@@ -864,7 +1200,6 @@
           } else if (companyFilter.value === 'blacklisted') {
             return list.filter(c => c.is_blacklisted);
           }
-          // Default: All approved or blacklisted (i.e. not pending approval)
           return list.filter(c => c.approval_status !== 'Pending');
         });
 
@@ -884,7 +1219,50 @@
           return list;
         });
 
-        // Session check to confirm Admin
+        const openStudentProfileModal = async (studentId) => {
+          selectedStudentProfile.value = null;
+          try {
+            const res = await axios.get(`/api/common/students/${studentId}/profile`);
+            selectedStudentProfile.value = res.data;
+          } catch (err) {
+            showAlert('Failed to load candidate dashboard details.', 'danger');
+            selectedStudentProfile.value = null;
+          }
+        };
+
+        const openCompanyProfile = async (companyId) => {
+          selectedCompanyProfile.value = null;
+          try {
+            const res = await axios.get(`/api/admin/companies/${companyId}/profile`);
+            selectedCompanyProfile.value = res.data;
+          } catch (err) {
+            showAlert('Failed to load company dashboard details.', 'danger');
+            selectedCompanyProfile.value = null;
+          }
+        };
+
+        const fetchGeneratedReports = async () => {
+          try {
+            const res = await axios.get('/api/admin/reports');
+            generatedReports.value = res.data;
+          } catch (err) {
+            console.error('Error fetching reports:', err);
+          }
+        };
+
+        const triggerMonthlyReportsJob = async () => {
+          reportsLoading.value = true;
+          try {
+            const res = await axios.post('/api/admin/trigger-monthly-reports');
+            showAlert(res.data.message, 'success');
+            setTimeout(fetchGeneratedReports, 1500);
+          } catch (err) {
+            showAlert('Failed to run monthly report generation.', 'danger');
+          } finally {
+            reportsLoading.value = false;
+          }
+        };
+
         const checkSession = async () => {
           try {
             const res = await axios.get('/api/current-user');
@@ -903,6 +1281,7 @@
           fetchCompanies();
           fetchDrives();
           fetchApplications();
+          fetchGeneratedReports();
         });
 
         return {
@@ -940,7 +1319,15 @@
           rejectDrive,
           removeDrive,
           removeApplication,
-          handleLogout
+          handleLogout,
+          selectedStudentProfile,
+          openStudentProfileModal,
+          selectedCompanyProfile,
+          openCompanyProfile,
+          generatedReports,
+          reportsLoading,
+          fetchGeneratedReports,
+          triggerMonthlyReportsJob
         };
       }
     }).mount('#app');

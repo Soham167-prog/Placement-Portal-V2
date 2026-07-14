@@ -51,41 +51,41 @@
           <h5 class="text-indigo-400 pb-2 mb-3 border-bottom border-secondary">Credentials & Contact</h5>
           <div class="col-md-6 mb-3">
             <label for="reg-comp-email" class="form-label text-slate-300">Email Address *</label>
-            <input type="email" id="reg-comp-email" class="form-control" v-model="companyForm.email" required placeholder="hr@google.com">
+            <input type="email" id="reg-comp-email" class="form-control" v-model="companyForm.email" required>
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-comp-name" class="form-label text-slate-300">Company Name *</label>
-            <input type="text" id="reg-comp-name" class="form-control" v-model="companyForm.company_name" required placeholder="Google LLC">
+            <input type="text" id="reg-comp-name" class="form-control" v-model="companyForm.company_name" required>
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-comp-password" class="form-label text-slate-300">Password *</label>
-            <input type="password" id="reg-comp-password" class="form-control" v-model="companyForm.password" required placeholder="••••••••">
+            <input type="password" id="reg-comp-password" class="form-control" v-model="companyForm.password" required>
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-comp-confirm" class="form-label text-slate-300">Confirm Password *</label>
-            <input type="password" id="reg-comp-confirm" class="form-control" v-model="companyForm.confirm_password" required placeholder="••••••••">
+            <input type="password" id="reg-comp-confirm" class="form-control" v-model="companyForm.confirm_password" required>
           </div>
           <div class="col-12 mb-3">
             <label for="reg-comp-hr" class="form-label text-slate-300">HR Contact Details *</label>
-            <input type="text" id="reg-comp-hr" class="form-control" v-model="companyForm.hr_contact" required placeholder="Jane Smith, Lead Technical Recruiter">
+            <input type="text" id="reg-comp-hr" class="form-control" v-model="companyForm.hr_contact" required>
           </div>
 
           <h5 class="text-indigo-400 pb-2 mb-3 mt-3 border-bottom border-secondary">Company Info</h5>
           <div class="col-md-6 mb-3">
             <label for="reg-comp-web" class="form-label text-slate-300">Website URL</label>
-            <input type="url" id="reg-comp-web" class="form-control" v-model="companyForm.website" placeholder="https://careers.google.com">
+            <input type="url" id="reg-comp-web" class="form-control" v-model="companyForm.website">
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-comp-ind" class="form-label text-slate-300">Industry Sector</label>
-            <input type="text" id="reg-comp-ind" class="form-control" v-model="companyForm.industry" placeholder="Software / IT">
+            <input type="text" id="reg-comp-ind" class="form-control" v-model="companyForm.industry">
           </div>
           <div class="col-12 mb-3">
             <label for="reg-comp-loc" class="form-label text-slate-300">Corporate HQ Location</label>
-            <input type="text" id="reg-comp-loc" class="form-control" v-model="companyForm.location" placeholder="Bangalore, India">
+            <input type="text" id="reg-comp-loc" class="form-control" v-model="companyForm.location">
           </div>
           <div class="col-12 mb-3">
             <label for="reg-comp-desc" class="form-label text-slate-300">Company Overview</label>
-            <textarea id="reg-comp-desc" rows="3" class="form-control" v-model="companyForm.description" placeholder="Briefly tell us about your organization..."></textarea>
+            <textarea id="reg-comp-desc" rows="3" class="form-control" v-model="companyForm.description"></textarea>
           </div>
         </div>
 

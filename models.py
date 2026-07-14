@@ -29,6 +29,7 @@ class User(db.Model, UserMixin):
     fs_uniquifier = db.Column(db.String(64), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    smtp_app_password = db.Column(db.String(100), nullable=True)
 
     company = db.relationship(
         "Company",
@@ -169,7 +170,7 @@ class PlacementDrive(db.Model):
     job_title = db.Column(db.String(150), nullable=False)
     job_description = db.Column(db.Text)
     eligibility_criteria = db.Column(db.Text)
-    application_deadline = db.Column(db.Date)
+    application_deadline = db.Column(db.DateTime)
     status = db.Column(
         db.String(20),
         default="Pending"
@@ -235,6 +236,9 @@ class Application(db.Model):
     )
     feedback = db.Column(db.Text)
     interview_date = db.Column(db.DateTime)
+    meet_link = db.Column(db.String(255))
+    interview_description = db.Column(db.Text)
+    interview_confirmed = db.Column(db.Boolean, default=False)
     updated_at = db.Column(
         db.DateTime,
         default=datetime.utcnow,

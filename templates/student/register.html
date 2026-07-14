@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Registration - Placement Portal</title>
-  <!-- Google Fonts Inter -->
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Bootstrap 5 CSS CDN -->
+  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Bootstrap Icons CDN -->
+  
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
-  <!-- Vue 3 CDN -->
+  
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <!-- Axios CDN -->
+  
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 </head>
 <body>
@@ -42,45 +42,49 @@
           <h5 class="text-indigo-400 pb-2 mb-3 border-bottom border-secondary">Account Info</h5>
           <div class="col-md-6 mb-3">
             <label for="reg-stud-email" class="form-label text-slate-300">Email Address *</label>
-            <input type="email" id="reg-stud-email" class="form-control" v-model="studentForm.email" required placeholder="student@placement.com">
+            <input type="email" id="reg-stud-email" class="form-control" v-model="studentForm.email" required>
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-stud-name" class="form-label text-slate-300">Full Name *</label>
-            <input type="text" id="reg-stud-name" class="form-control" v-model="studentForm.full_name" required placeholder="John Doe">
+            <input type="text" id="reg-stud-name" class="form-control" v-model="studentForm.full_name" required>
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-stud-password" class="form-label text-slate-300">Password *</label>
-            <input type="password" id="reg-stud-password" class="form-control" v-model="studentForm.password" required placeholder="••••••••">
+            <input type="password" id="reg-stud-password" class="form-control" v-model="studentForm.password" required>
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-stud-confirm" class="form-label text-slate-300">Confirm Password *</label>
-            <input type="password" id="reg-stud-confirm" class="form-control" v-model="studentForm.confirm_password" required placeholder="••••••••">
+            <input type="password" id="reg-stud-confirm" class="form-control" v-model="studentForm.confirm_password" required>
           </div>
 
           <h5 class="text-indigo-400 pb-2 mb-3 mt-3 border-bottom border-secondary">Academic Details</h5>
           <div class="col-md-6 mb-3">
             <label for="reg-stud-phone" class="form-label text-slate-300">Phone Number</label>
-            <input type="text" id="reg-stud-phone" class="form-control" v-model="studentForm.phone" placeholder="1234567890">
+            <input type="text" id="reg-stud-phone" class="form-control" v-model="studentForm.phone">
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-stud-branch" class="form-label text-slate-300">Branch</label>
-            <input type="text" id="reg-stud-branch" class="form-control" v-model="studentForm.branch" placeholder="CSE">
+            <input type="text" id="reg-stud-branch" class="form-control" v-model="studentForm.branch">
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-stud-cgpa" class="form-label text-slate-300">CGPA</label>
-            <input type="number" step="0.01" min="0" max="10" id="reg-stud-cgpa" class="form-control" v-model.number="studentForm.cgpa" placeholder="9.0">
+            <input type="number" step="0.01" min="0" max="10" id="reg-stud-cgpa" class="form-control" v-model.number="studentForm.cgpa">
           </div>
           <div class="col-md-6 mb-3">
             <label for="reg-stud-year" class="form-label text-slate-300">Graduation Year</label>
-            <input type="number" id="reg-stud-year" class="form-control" v-model.number="studentForm.graduation_year" placeholder="2026">
+            <input type="number" id="reg-stud-year" class="form-control" v-model.number="studentForm.graduation_year">
           </div>
           <div class="col-12 mb-3">
             <label for="reg-stud-skills" class="form-label text-slate-300">Skills (Comma separated)</label>
-            <input type="text" id="reg-stud-skills" class="form-control" v-model="studentForm.skills" placeholder="Python, Vue.js, SQL">
+            <input type="text" id="reg-stud-skills" class="form-control" v-model="studentForm.skills">
           </div>
           <div class="col-12 mb-3">
             <label for="reg-stud-exp" class="form-label text-slate-300">Experience</label>
-            <textarea id="reg-stud-exp" rows="3" class="form-control" v-model="studentForm.experience" placeholder="Internships, projects..."></textarea>
+            <textarea id="reg-stud-exp" rows="3" class="form-control" v-model="studentForm.experience"></textarea>
+          </div>
+          <div class="col-12 mb-3">
+            <label for="reg-stud-resume" class="form-label text-slate-300">Resume File (PDF preferred)</label>
+            <input type="file" id="reg-stud-resume" class="form-control" @change="handleFileChange" accept=".pdf">
           </div>
         </div>
 
@@ -119,6 +123,11 @@
         const error = ref('');
         const success = ref('');
         const loading = ref(false);
+        const resumeFile = ref(null);
+
+        const handleFileChange = (e) => {
+          resumeFile.value = e.target.files[0];
+        };
 
         const handleRegisterStudent = async () => {
           if (!studentForm.value.email || !studentForm.value.full_name || !studentForm.value.password) {
@@ -132,8 +141,30 @@
           error.value = '';
           success.value = '';
           loading.value = true;
+          const formData = new FormData();
+          formData.append('email', studentForm.value.email);
+          formData.append('full_name', studentForm.value.full_name);
+          formData.append('password', studentForm.value.password);
+          formData.append('phone', studentForm.value.phone);
+          formData.append('branch', studentForm.value.branch);
+          if (studentForm.value.cgpa !== null && studentForm.value.cgpa !== '') {
+            formData.append('cgpa', studentForm.value.cgpa);
+          }
+          if (studentForm.value.graduation_year !== null && studentForm.value.graduation_year !== '') {
+            formData.append('graduation_year', studentForm.value.graduation_year);
+          }
+          formData.append('skills', studentForm.value.skills);
+          formData.append('experience', studentForm.value.experience);
+          if (resumeFile.value) {
+            formData.append('resume_file', resumeFile.value);
+          }
+
           try {
-            const res = await axios.post('/register/student', studentForm.value);
+            const res = await axios.post('/register/student', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              }
+            });
             success.value = 'Registration successful! Redirecting to login page...';
             setTimeout(() => {
               window.location.href = '/student-login';
@@ -145,7 +176,7 @@
           }
         };
 
-        return { studentForm, error, success, loading, handleRegisterStudent };
+        return { studentForm, error, success, loading, handleFileChange, handleRegisterStudent };
       }
     }).mount('#app');
   </script>

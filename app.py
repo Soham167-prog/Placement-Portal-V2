@@ -1383,7 +1383,20 @@ def student_profile():
         
     student = Student.query.filter_by(user_id=current_user.id).first()
     if not student:
-        return jsonify({"message": "Student profile not found"}), 404
+        name_part = current_user.email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
+        student = Student(
+            user_id=current_user.id,
+            full_name=name_part or "Student",
+            phone="",
+            branch="",
+            cgpa=0.0,
+            graduation_year=None,
+            skills="",
+            resume="default.pdf",
+            experience=""
+        )
+        db.session.add(student)
+        db.session.commit()
         
     if request.method == "POST":
         if request.content_type and "multipart/form-data" in request.content_type:

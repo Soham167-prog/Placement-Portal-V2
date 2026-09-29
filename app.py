@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, send_file
+from flask import Flask, render_template, request, jsonify, redirect, send_file, send_from_directory
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_security import SQLAlchemyUserDatastore, auth_required, current_user, login_user, logout_user
@@ -246,6 +246,25 @@ db.init_app(app)
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 security.init_app(app, user_datastore, register_blueprint=False)
 
+def get_upload_dir(subfolder="resumes"):
+    is_vercel = os.environ.get("VERCEL") == "1" or os.environ.get("VERCEL_ENV") is not None
+    if is_vercel:
+        path = os.path.join("/tmp", "uploads", subfolder)
+    else:
+        path = os.path.join(app.root_path, "static", "uploads", subfolder)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+@app.route('/static/uploads/<subfolder>/<filename>')
+def serve_uploads(subfolder, filename):
+    is_vercel = os.environ.get("VERCEL") == "1" or os.environ.get("VERCEL_ENV") is not None
+    if is_vercel:
+        tmp_path = os.path.join("/tmp", "uploads", subfolder)
+        if os.path.exists(os.path.join(tmp_path, filename)):
+            return send_from_directory(tmp_path, filename)
+    static_path = os.path.join(app.root_path, "static", "uploads", subfolder)
+    return send_from_directory(static_path, filename)
+
 @security.unauthn_handler
 def custom_unauth_handler(mechanisms, headers=None):
     return jsonify({"message": "Authentication required."}), 401
@@ -253,11 +272,25 @@ def custom_unauth_handler(mechanisms, headers=None):
 with app.app_context():
     try:
         db.create_all()
-        Role.query.first()
-    except Exception:
-        db.session.remove()
-        db.drop_all()
-        db.create_all()
+        if not Role.query.first():
+            admin_role = Role(name="Admin", description="Administrator Role")
+            student_role = Role(name="Student", description="Student Role")
+            company_role = Role(name="Company", description="Company Role")
+            db.session.add_all([admin_role, student_role, company_role])
+            db.session.commit()
+        if not User.query.filter_by(role="Admin").first():
+            admin = User(
+                email="admin@placement.com",
+                password_hash=generate_password_hash("admin123"),
+                role="Admin",
+                is_active=True
+            )
+            admin.roles.append(Role.query.filter_by(name="Admin").first())
+            db.session.add(admin)
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[Database Init Warning] Handled initialization: {e}")
 
 @app.before_request
 def handle_inactive_user_session():
@@ -457,8 +490,7 @@ def register_student():
     if "resume_file" in request.files:
         file = request.files["resume_file"]
         if file and file.filename:
-            upload_dir = os.path.join(app.root_path, "static", "uploads", "resumes")
-            os.makedirs(upload_dir, exist_ok=True)
+            upload_dir = get_upload_dir("resumes")
             filename = f"resume_{user.id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
             file.save(os.path.join(upload_dir, filename))
             resume_path = f"/static/uploads/resumes/{filename}"
@@ -1190,7 +1222,8 @@ def company_update_application_status(app_id):
         custom_benefits = data.get("benefits") or appln.placement_drive.benefits
         
         pdf_filename = f"offer_{appln.application_id}.pdf"
-        pdf_path = os.path.join(app.root_path, "static", "uploads", "offers", pdf_filename)
+        upload_dir = get_upload_dir("offers")
+        pdf_path = os.path.join(upload_dir, pdf_filename)
         generate_offer_letter_pdf(
             student_name=appln.student.full_name,
             company_name=company.company_name,
@@ -1371,8 +1404,7 @@ def student_profile():
             if "resume_file" in request.files:
                 file = request.files["resume_file"]
                 if file and file.filename:
-                    upload_dir = os.path.join(app.root_path, "static", "uploads", "resumes")
-                    os.makedirs(upload_dir, exist_ok=True)
+                    upload_dir = get_upload_dir("resumes")
                     filename = f"resume_{student.student_id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
                     file.save(os.path.join(upload_dir, filename))
                     student.resume = f"/static/uploads/resumes/{filename}"
@@ -1565,7 +1597,8 @@ def student_download_offer(placement_id):
         return jsonify({"message": "Access denied"}), 403
         
     pdf_filename = f"offer_ref_{placement.placement_id}.pdf"
-    pdf_path = os.path.join(app.root_path, "static", "uploads", "offers", pdf_filename)
+    upload_dir = get_upload_dir("offers")
+    pdf_path = os.path.join(upload_dir, pdf_filename)
     if not os.path.exists(pdf_path):
         import datetime
         joining_date_str = placement.joining_date.strftime("%Y-%m-%d") if placement.joining_date else datetime.date.today().strftime("%Y-%m-%d")
